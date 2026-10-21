@@ -111,22 +111,28 @@ much that the band gains are not the spectrum. The de-coupling matrix in
       script revision to get right.
 - [ ] T6.3 Publish `sehrnoise-core` to crates.io, tag `v0.1.0`
       — the crate now **packages and verifies** (`cargo package -p
-      sehrnoise-core`): the missing crate readme and the build script's
-      read of a file outside the crate have both been fixed. The release
-      archives are built and verified locally (see T6.2 and
-      HANDOFF.md §18). What is left needs the author: `cargo login`, and a
-      commit — the repository has no commits at all yet.
+      sehrnoise-core`); the release archives are built and verified locally
+      (T6.2, HANDOFF.md §18.4); the design decisions are signed off (D21),
+      and **the first commit exists** (`5306f7f`, made at the author's
+      request). What is left needs the author's crates.io account:
+      `cargo login`, then `cargo publish -p sehrnoise-core`, then a GitHub
+      repo at the URL in the workspace `repository` field, then tag `v0.1.0`
+      — pushing the tag is what fills the release with the CI archives.
 
 
 ---
 
 Status as of the stop: see [HANDOFF.md](HANDOFF.md) for the environment findings,
 the verified toolchain results, the measurement findings about the band bank,
-and the deviations from the plan.
+and the deviations from the plan. §18 records the packaging session, the CI
+fixes, the preserved refine tool and the author's sign-offs (D21).
 
 **Tests: 48 unit tests + 14 matrix tests + 11 plugin tests + 1 preset-copy
 test, all green.** The whole test matrix (1 to 14) is implemented.
 
+**First commit: `5306f7f`** (the author asked for it; nothing pushed — there
+is no remote yet).
+
 **Next: T6.3** — publishing `sehrnoise-core` to crates.io and tagging
-`v0.1.0`. It needs the author's crates.io account; nothing else is in the
-way. The packaging of the release artefacts is still open.
+`v0.1.0`. It needs the author's crates.io account (`cargo login`); the code,
+the packaging and the design decisions are all in place.

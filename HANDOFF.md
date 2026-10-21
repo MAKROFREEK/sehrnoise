@@ -1029,7 +1029,24 @@ macOS/Windows the release-side shape of these files is unverified.
 - The YAML of the rewritten workflow parses; its macOS/Windows behaviour is
   still unverified.
 
-### 18.6 Left open after this session (unchanged, all author decisions)
+### 18.6 Face-to-face replies, recorded this session
+
+The author answered the standing questions in chat:
+
+- **The de-coupling matrix is signed off** (§11 question 1 → D21 in
+  `.opencode/01-decisions.md`).
+- **≈15 dB band-peak separation is accepted for v0.1.0** (§16.2's
+  re-specification question → same D21). The test-matrix headline of
+  "18 dB" belongs to the past.
+- **The first commit was made at the author's request**:
+  `5306f7f` — the whole tree (59 files, ~15 800 lines), on `master`,
+  nothing pushed (there is no remote yet).
+
+That empties §11 to three questions (Grey, the DC blocker's corner, the
+master-before-limiter order) and leaves T6.3 waiting only on `cargo login`
+and the crates.io account.
+
+### 18.7 Left open after this session (unchanged, all author decisions)
 
 - §16.5's design choice (runtime exact solve vs changing the bank) — §16.8.
 - The re-specification of test 5 (≈15 dB achievable; 18 dB not reachable).
