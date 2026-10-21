@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # In CI the build directory is the runner's own checkout, which is not a
+  # synced vault; the local rule "CARGO_TARGET_DIR outside the vault" is about
+  # this repository, not about CI.
+  CARGO_TARGET_DIR: target
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --workspace --all-targets
+
+  bundle:
+    name: bundle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-nice-plug
+        run: cargo install cargo-nice-plug --locked
+      - name: Bundle the plugin and build the standalone app
+        run: |
+          cargo nice-plug bundle -p sehrnoise-plugin --release
+          cargo build -p sehrnoise-standalone --release
+      - name: Upload the build artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          # the artifact's internal layout is bundled/ and release/, which
+          # tools/make_release.sh expects after download
+          path: |
+            target/bundled/
+            target/release/sehrnoise-standalone
+            target/release/sehrnoise-standalone.exe
+          if-no-files-found: error
+
+  # Assembles the release archives from the artefacts the bundle job uploaded,
+  # and attaches them to the GitHub release. No Rust toolchain here: the job
+  # only runs tools/make_release.sh.
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Assemble the release archives
+        run: |
+          for artifact_dir in artifacts/build-*; do
+            os="$(basename "$artifact_dir" | sed 's/^build-//')"
+            case "$os" in
+              ubuntu-latest)  tag=linux-x86_64 ;;
+              macos-latest)   tag=macos-aarch64 ;;
+              windows-latest) tag=windows-x86_64 ;;
+              *)              tag="$os" ;;
+            esac
+            tgt="$PWD/.release-target/$os"
+            mkdir -p "$tgt"
+            cp -R "$artifact_dir/bundled" "$artifact_dir/release" "$tgt/"
+            CARGO_TARGET_DIR="$tgt" tools/make_release.sh "$tag"
+          done
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .release-target/*/releasepkg/*.zip
+          generate_release_notes: true

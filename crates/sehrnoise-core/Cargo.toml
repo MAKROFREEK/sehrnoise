@@ -1,0 +1,22 @@
+[package]
+name = "sehrnoise-core"
+description = "Procedural white-noise DSP core for the sehrnoise generator"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["audio", "dsp", "noise", "synthesis"]
+categories = ["multimedia::audio"]
+
+[dependencies]
+
+[build-dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
+
+[dev-dependencies]
+rustfft = { workspace = true }
+serde_json = "1"

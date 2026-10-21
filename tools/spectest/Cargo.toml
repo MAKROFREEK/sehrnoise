@@ -1,0 +1,11 @@
+[package]
+name = "spectest"
+description = "Offline renderer and spectrum report: the measuring instrument of the sehrnoise project"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+sehrnoise-core = { workspace = true }

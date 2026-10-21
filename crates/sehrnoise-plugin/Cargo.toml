@@ -1,0 +1,23 @@
+[package]
+name = "sehrnoise-plugin"
+description = "SehrNoise: a procedural white-noise generator (CLAP + VST3)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["audio", "dsp", "noise", "synthesis", "generator"]
+categories = ["multimedia::audio"]
+
+[lib]
+name = "sehrnoise_plugin"
+# The `cdylib` is the plugin itself; the `lib` is what the standalone binary
+# and the tests link against.
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+sehrnoise-core = { workspace = true }
+nice-plug = { workspace = true }
+nice-plug-egui = { workspace = true }
+egui = { workspace = true }

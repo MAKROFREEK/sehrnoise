@@ -1,0 +1,11 @@
+[package]
+name = "refine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sehrnoise-core = { path = "../../crates/sehrnoise-core" }
+
+# A standalone dev tool, not a workspace member: `cargo test --workspace` and
+# CI do not build it. Run it from this directory.
+[workspace]

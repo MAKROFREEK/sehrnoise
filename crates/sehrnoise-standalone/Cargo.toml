@@ -1,0 +1,17 @@
+[package]
+name = "sehrnoise-standalone"
+description = "SehrNoise: the standalone application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+keywords = ["audio", "dsp", "noise", "synthesis", "generator"]
+categories = ["multimedia::audio"]
+publish = false
+
+[dependencies]
+sehrnoise-core = { workspace = true }
+sehrnoise-plugin = { path = "../sehrnoise-plugin" }
+nice-plug = { workspace = true, features = ["standalone"] }

@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sehrnoise-core",
+    "crates/sehrnoise-plugin",
+    "crates/sehrnoise-standalone",
+    "tools/clapcheck",
+    "tools/spectest",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/sehrnoise/sehrnoise"
+authors = ["sehrnoise contributors"]
+
+[workspace.dependencies]
+sehrnoise-core = { path = "crates/sehrnoise-core" }
+nice-plug = { version = "0.4.2", default-features = false, features = ["editor", "vst3"] }
+nice-plug-egui = "0.6.0"
+egui = { version = "0.37", features = ["default_fonts"] }
+rustfft = "6"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

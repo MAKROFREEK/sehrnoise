@@ -1,0 +1,12 @@
+[package]
+name = "clapcheck"
+description = "Minimal CLAP host: loads a plugin bundle and renders it offline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+clap-sys = "0.5"
+libloading = "0.9"
