@@ -11,7 +11,7 @@ This crate is the whole audio chain and nothing else. It has **no audio I/O**,
 
 ```
 white noise (xoshiro256++) → 8 × RBJ peaking biquad (20 Hz–20 kHz, ±24 dB)
-    → M/S stereo width ladder (Mono / Normal / Wide / Super Wide)
+    → M/S stereo width ladder (Mono / Normal / Wide)
     → DC block (10 Hz) → master gain → soft-knee limiter → out
 ```
 

@@ -10,9 +10,7 @@
 //!
 //! The audio thread must not allocate. Two things keep that true:
 //!
-//! - The core never allocates in `process()`, and the drift engine holds its
-//!   voices in a fixed array, so even changing the number of voices does not
-//!   allocate.
+//! - The core never allocates in `process()`.
 //! - The parameters are only handed to the core when they have actually
 //!   changed, so the usual block does no work beyond the processing itself.
 
@@ -22,20 +20,22 @@ use nice_plug::editor::dpi::{LogicalSize, Size};
 use nice_plug::params::InternalParamMut;
 use nice_plug::prelude::*;
 use nice_plug_egui::{EguiEditor, EguiEditorState, EguiNiceSettings, RepaintNotifier};
-use sehrnoise_core::{
-    DriftRange, DriftShape, DriftSpeed, EngineParams, NoiseEngine, Warp, Width, PRESETS,
-};
+use sehrnoise_core::{EngineParams, NoiseEngine, Warp, Width, DEFAULT_CEILING_DB, PRESETS};
 
 pub mod access;
 pub mod control;
 pub mod editor;
+pub mod titlebar;
 pub mod ui;
+pub mod userpresets;
 
 use crate::access::ParamAccess;
-use crate::control::{Control, SEED};
+use crate::control::{Control, MODE_PRESET, MODE_RANDOMIZE, SEED};
 
 /// The size of the editor window, in logical pixels.
-const EDITOR_SIZE: [f32; 2] = [720.0, 480.0];
+///
+/// The size the author chose (T7.9): 575×310.
+const EDITOR_SIZE: [f32; 2] = [575.0, 310.0];
 
 /// How far the random curve reaches, in dB.
 const RANDOM_RANGE_DB: f32 = 12.0;
@@ -51,30 +51,20 @@ use sehrnoise_core::BAND_NAMES;
 /// The warp control.
 #[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WarpChoice {
+    /// No tilt.
+    #[id = "wrst"]
+    #[name = "Default"]
+    Reset,
     /// -6 dB/octave.
     #[id = "wslw"]
     #[name = "Slower"]
     Slower,
-    /// +6 dB/octave.
-    #[id = "wfst"]
-    #[name = "Faster"]
-    Faster,
-    /// A 30 second crossfade between 0 and +6 dB/octave.
-    #[id = "walt"]
-    #[name = "Alternate"]
-    Alternate,
-    /// No tilt.
-    #[id = "wrst"]
-    #[name = "Reset"]
-    Reset,
 }
 
 impl From<WarpChoice> for Warp {
     fn from(choice: WarpChoice) -> Self {
         match choice {
             WarpChoice::Slower => Warp::Slower,
-            WarpChoice::Faster => Warp::Faster,
-            WarpChoice::Alternate => Warp::Alternate,
             WarpChoice::Reset => Warp::Reset,
         }
     }
@@ -84,8 +74,6 @@ impl From<Warp> for WarpChoice {
     fn from(warp: Warp) -> Self {
         match warp {
             Warp::Slower => WarpChoice::Slower,
-            Warp::Faster => WarpChoice::Faster,
-            Warp::Alternate => WarpChoice::Alternate,
             Warp::Reset => WarpChoice::Reset,
         }
     }
@@ -106,10 +94,6 @@ pub enum WidthChoice {
     #[id = "wwide"]
     #[name = "Wide"]
     Wide,
-    /// Wider still.
-    #[id = "wsupw"]
-    #[name = "Super Wide"]
-    SuperWide,
 }
 
 impl From<WidthChoice> for Width {
@@ -118,7 +102,6 @@ impl From<WidthChoice> for Width {
             WidthChoice::Mono => Width::Mono,
             WidthChoice::Normal => Width::Normal,
             WidthChoice::Wide => Width::Wide,
-            WidthChoice::SuperWide => Width::SuperWide,
         }
     }
 }
@@ -129,163 +112,6 @@ impl From<Width> for WidthChoice {
             Width::Mono => WidthChoice::Mono,
             Width::Normal => WidthChoice::Normal,
             Width::Wide => WidthChoice::Wide,
-            Width::SuperWide => WidthChoice::SuperWide,
-        }
-    }
-}
-
-/// The shape of the drift motion.
-#[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DriftShapeChoice {
-    /// A continuous triangle.
-    #[id = "dssft"]
-    #[name = "Soft"]
-    Soft,
-    /// The triangle quantised to 2 dB steps.
-    #[id = "dshrd"]
-    #[name = "Hard"]
-    Hard,
-}
-
-impl From<DriftShapeChoice> for DriftShape {
-    fn from(choice: DriftShapeChoice) -> Self {
-        match choice {
-            DriftShapeChoice::Soft => DriftShape::Soft,
-            DriftShapeChoice::Hard => DriftShape::Hard,
-        }
-    }
-}
-
-impl From<DriftShape> for DriftShapeChoice {
-    fn from(shape: DriftShape) -> Self {
-        match shape {
-            DriftShape::Soft => DriftShapeChoice::Soft,
-            DriftShape::Hard => DriftShapeChoice::Hard,
-        }
-    }
-}
-
-/// How many bands drift.
-#[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DriftVoicesChoice {
-    /// One band drifts.
-    #[id = "dvsolo"]
-    #[name = "Solo"]
-    Solo,
-    /// Two bands drift.
-    #[id = "dvduo"]
-    #[name = "Duo"]
-    Duo,
-    /// Three bands drift.
-    #[id = "dvtrio"]
-    #[name = "Trio"]
-    Trio,
-    /// Four bands drift.
-    #[id = "dvquad"]
-    #[name = "Quad"]
-    Quad,
-}
-
-impl DriftVoicesChoice {
-    /// The number of voices this choice means.
-    pub fn count(self) -> u8 {
-        match self {
-            DriftVoicesChoice::Solo => 1,
-            DriftVoicesChoice::Duo => 2,
-            DriftVoicesChoice::Trio => 3,
-            DriftVoicesChoice::Quad => 4,
-        }
-    }
-}
-
-/// How fast the drift runs.
-#[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DriftSpeedChoice {
-    /// One eighth of the normal rate.
-    #[id = "dsdiv8"]
-    #[name = "÷8"]
-    Div8,
-    /// One quarter of the normal rate.
-    #[id = "dsdiv4"]
-    #[name = "÷4"]
-    Div4,
-    /// Half the normal rate.
-    #[id = "dsdiv2"]
-    #[name = "÷2"]
-    Div2,
-    /// A 60 second period.
-    #[id = "dsnorm"]
-    #[name = "Normal"]
-    Normal,
-    /// Twice the normal rate.
-    #[id = "dsmul2"]
-    #[name = "×2"]
-    Mul2,
-    /// Four times the normal rate.
-    #[id = "dsmul4"]
-    #[name = "×4"]
-    Mul4,
-    /// Eight times the normal rate.
-    #[id = "dsmul8"]
-    #[name = "×8"]
-    Mul8,
-}
-
-impl From<DriftSpeedChoice> for DriftSpeed {
-    fn from(choice: DriftSpeedChoice) -> Self {
-        match choice {
-            DriftSpeedChoice::Div8 => DriftSpeed::Div8,
-            DriftSpeedChoice::Div4 => DriftSpeed::Div4,
-            DriftSpeedChoice::Div2 => DriftSpeed::Div2,
-            DriftSpeedChoice::Normal => DriftSpeed::Normal,
-            DriftSpeedChoice::Mul2 => DriftSpeed::Mul2,
-            DriftSpeedChoice::Mul4 => DriftSpeed::Mul4,
-            DriftSpeedChoice::Mul8 => DriftSpeed::Mul8,
-        }
-    }
-}
-
-impl From<DriftSpeed> for DriftSpeedChoice {
-    fn from(speed: DriftSpeed) -> Self {
-        match speed {
-            DriftSpeed::Div8 => DriftSpeedChoice::Div8,
-            DriftSpeed::Div4 => DriftSpeedChoice::Div4,
-            DriftSpeed::Div2 => DriftSpeedChoice::Div2,
-            DriftSpeed::Normal => DriftSpeedChoice::Normal,
-            DriftSpeed::Mul2 => DriftSpeedChoice::Mul2,
-            DriftSpeed::Mul4 => DriftSpeedChoice::Mul4,
-            DriftSpeed::Mul8 => DriftSpeedChoice::Mul8,
-        }
-    }
-}
-
-/// Which end of the range the drift oscillates between.
-#[derive(Enum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DriftRangeChoice {
-    /// Between the user's gain and the floor.
-    #[id = "drstl"]
-    #[name = "set→Low"]
-    SetToLow,
-    /// Between the ceiling and the user's gain.
-    #[id = "drhts"]
-    #[name = "High←set"]
-    HighToSet,
-}
-
-impl From<DriftRangeChoice> for DriftRange {
-    fn from(choice: DriftRangeChoice) -> Self {
-        match choice {
-            DriftRangeChoice::SetToLow => DriftRange::SetToLow,
-            DriftRangeChoice::HighToSet => DriftRange::HighToSet,
-        }
-    }
-}
-
-impl From<DriftRange> for DriftRangeChoice {
-    fn from(range: DriftRange) -> Self {
-        match range {
-            DriftRange::SetToLow => DriftRangeChoice::SetToLow,
-            DriftRange::HighToSet => DriftRangeChoice::HighToSet,
         }
     }
 }
@@ -325,27 +151,12 @@ pub struct SehrNoiseParams {
     /// The stereo width.
     #[id = "width"]
     pub width: EnumParam<WidthChoice>,
-    /// The shape of the drift motion.
-    #[id = "drshp"]
-    pub drift_shape: EnumParam<DriftShapeChoice>,
-    /// How many bands drift.
-    #[id = "drvc"]
-    pub drift_voices: EnumParam<DriftVoicesChoice>,
-    /// How fast the drift runs.
-    #[id = "drspd"]
-    pub drift_speed: EnumParam<DriftSpeedChoice>,
-    /// Which end of the range the drift oscillates between.
-    #[id = "drng"]
-    pub drift_range: EnumParam<DriftRangeChoice>,
     /// The master output gain, in dB.
     #[id = "mastr"]
     pub master: FloatParam,
     /// Silence the output.
     #[id = "mute"]
     pub mute: BoolParam,
-    /// The limiter ceiling, in dBFS.
-    #[id = "ceil"]
-    pub limiter_ceiling: FloatParam,
     /// The index of the chosen preset.
     #[id = "prst"]
     pub preset: IntParam,
@@ -355,9 +166,13 @@ pub struct SehrNoiseParams {
 }
 
 /// The gain range of a band slider.
+///
+/// ±80 dB since T7.3, matching the core's wanted-level range: the
+/// reference-matched presets do not fit in ±24 (see
+/// `sehrnoise_core::bands::MIN_BAND_GAIN_DB`).
 const BAND_RANGE: FloatRange = FloatRange::Linear {
-    min: -24.0,
-    max: 24.0,
+    min: -80.0,
+    max: 80.0,
 };
 
 impl Default for SehrNoiseParams {
@@ -377,10 +192,6 @@ impl Default for SehrNoiseParams {
             band_8: band(BAND_NAMES[7]),
             warp: EnumParam::new("Warp", WarpChoice::Reset),
             width: EnumParam::new("Width", WidthChoice::Normal),
-            drift_shape: EnumParam::new("Drift Shape", DriftShapeChoice::Soft),
-            drift_voices: EnumParam::new("Drift Voices", DriftVoicesChoice::Solo),
-            drift_speed: EnumParam::new("Drift Speed", DriftSpeedChoice::Normal),
-            drift_range: EnumParam::new("Drift Range", DriftRangeChoice::SetToLow),
             // The plugin opens quietly: white noise at full scale is very
             // loud, and a generator that starts by blasting the listener is
             // not a polite default. -32 dB is about 2.5 % of full scale.
@@ -390,15 +201,6 @@ impl Default for SehrNoiseParams {
             })
             .with_unit("dB"),
             mute: BoolParam::new("Mute", false),
-            limiter_ceiling: FloatParam::new(
-                "Limiter Ceiling",
-                -1.0,
-                FloatRange::Linear {
-                    min: -6.0,
-                    max: -0.1,
-                },
-            )
-            .with_unit("dBFS"),
             preset: IntParam::new(
                 "Preset",
                 0,
@@ -471,13 +273,21 @@ impl SehrNoise {
             ],
             warp: p.warp.value().into(),
             width: p.width.value().into(),
-            drift_shape: p.drift_shape.value().into(),
-            drift_voices: p.drift_voices.value().count(),
-            drift_speed: p.drift_speed.value().into(),
-            drift_range: p.drift_range.value().into(),
             master_db: p.master.value(),
             mute: p.mute.value(),
-            limiter_ceiling_db: p.limiter_ceiling.value(),
+            // The drift toggle is not a host parameter: it is a session-only
+            // switch that lives in the control block, like the randomize
+            // trigger.
+            drift: self.control.drift_on(),
+            // The limiter is not a user control: it is a safety net for the
+            // listener's ears and equipment, and its ceiling is fixed.
+            limiter_ceiling_db: DEFAULT_CEILING_DB,
+            // The active preset's output trim (T7.3): preset data, not a
+            // user control. A user preset or a random curve plays untrimmed.
+            output_trim_db: sehrnoise_core::preset::PRESETS
+                .get(p.preset.value().max(0) as usize)
+                .map(|preset| preset.output_trim_db)
+                .unwrap_or(0.0),
         }
     }
 
@@ -490,8 +300,16 @@ impl SehrNoise {
         let preset = self.params.preset.value();
         if preset != self.last_preset {
             self.last_preset = preset;
-            let access = access::InternalAccess::new(self.params.clone(), self.control.clone());
+            let access =
+                access::InternalAccess::new(self.params.clone(), self.control.clone());
             ui::apply_preset(&access, preset);
+            // A preset chosen anywhere — the host's own interface included —
+            // ends the drift, which then has to be re-toggled.
+            self.control.set_drift_on(false);
+            self.control.set_mode(MODE_PRESET);
+            // The panel cannot keep showing a user preset's name over the
+            // built-in preset's values.
+            self.control.set_user_selected(None);
         }
 
         // The editor asks for a new curve by bumping the counter and arming
@@ -531,6 +349,11 @@ impl SehrNoise {
                     .randomize
                     ._internal_set_plain_value(false)
             };
+            // A new random curve ends the drift, which then has to be
+            // re-toggled.
+            self.control.set_drift_on(false);
+            self.control.set_mode(MODE_RANDOMIZE);
+            self.control.set_user_selected(None);
         }
         self.randomize_armed = armed;
     }
@@ -611,14 +434,16 @@ impl Plugin for SehrNoise {
             self.applied = wanted;
         }
 
-        // Let the editor show what the limiter is doing.
-        self.control
-            .set_gain_reduction_db(self.engine.limiter_gain_reduction_db());
-
         let channels = buffer.as_slice();
         if channels.len() >= 2 {
             let (left, right) = channels.split_at_mut(1);
             self.engine.process(left[0], right[0]);
+        }
+
+        // Publish the drift's current offsets, so the panel can show what
+        // the bands are actually doing while the drift runs.
+        for (band, offset) in self.engine.drift_offsets_db().iter().enumerate() {
+            self.control.set_drift_offset(band, *offset);
         }
 
         ProcessStatus::Normal
@@ -662,9 +487,9 @@ mod tests {
         // Every parameter has to have an identifier, or the host cannot
         // remember it between sessions.
         let map = params.param_map();
-        // Eight bands, six choices, and the master, mute, ceiling, preset and
+        // Eight bands, two choices, and the master, mute, preset and
         // randomize controls.
-        assert_eq!(map.len(), 8 + 6 + 5);
+        assert_eq!(map.len(), 8 + 2 + 4);
         let mut ids: Vec<&str> = map.iter().map(|(id, _, _)| id.as_str()).collect();
         ids.sort_unstable();
         let before = ids.len();
@@ -689,12 +514,9 @@ mod tests {
 
     #[test]
     fn the_choices_map_onto_the_core() {
-        assert_eq!(Warp::from(WarpChoice::Faster), Warp::Faster);
-        assert_eq!(Width::from(WidthChoice::SuperWide), Width::SuperWide);
-        assert_eq!(DriftShape::from(DriftShapeChoice::Hard), DriftShape::Hard);
-        assert_eq!(DriftSpeed::from(DriftSpeedChoice::Mul8), DriftSpeed::Mul8);
-        assert_eq!(DriftRange::from(DriftRangeChoice::HighToSet), DriftRange::HighToSet);
-        assert_eq!(DriftVoicesChoice::Quad.count(), 4);
+        assert_eq!(Warp::from(WarpChoice::Slower), Warp::Slower);
+        assert_eq!(Warp::from(WarpChoice::Reset), Warp::Reset);
+        assert_eq!(Width::from(WidthChoice::Wide), Width::Wide);
     }
 
     #[test]
@@ -708,11 +530,15 @@ mod tests {
                 .preset
                 ._internal_set_plain_value(pink)
         };
+        // The panel was showing a saved user preset; a built-in choice
+        // anywhere has to end that (the values move too).
+        plugin.control.set_user_selected(Some(0));
         plugin.follow_triggers();
 
         let expected = sehrnoise_core::preset_by_name("Pink").unwrap();
         assert_eq!(plugin.params.band_1.value(), expected.bands_db[0]);
         assert_eq!(plugin.params.band_8.value(), expected.bands_db[7]);
+        assert_eq!(plugin.control.user_selected(), None);
     }
 
     #[test]
@@ -731,6 +557,8 @@ mod tests {
         assert_ne!(plugin.params.band_1.value(), 0.0);
         assert!(!plugin.params.randomize.value());
         assert_eq!(plugin.control.random_count(), 1);
+        // A new curve is not a saved preset; the display half follows.
+        assert_eq!(plugin.control.user_selected(), None);
     }
 
     #[test]

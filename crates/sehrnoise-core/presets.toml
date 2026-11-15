@@ -5,46 +5,41 @@
 # rebuild: `build.rs` turns it into the preset table the plugin and the
 # standalone app share.
 #
-# band_gains_db:  -24 .. +24
-# seed:           the seed of the drift animation
-# drift_voices:   1 (Solo) .. 4 (Quad)
-# drift_speed:    "÷8" "÷4" "÷2" "Normal" "×2" "×4" "×8"
-# drift_range:    "set→Low" or "High←set"
+# band_gains_db:  -80 .. +80 (T7.3 widened the range so the reference-matched
+#                 presets fit; the six curves below were fitted to the
+#                 recordings in `noise_references/` by `tools/spectest`
+#                 `refsolve`)
+# trim_db:        the output trim the preset plays at, in dB, added to the
+#                 master gain. Keeps a heavily shaped preset out of the
+#                 limiter, so the spectrum that plays is the spectrum that
+#                 was fitted. Optional, default 0.
+# seed:           the seed of the random curve
 # randomize:      true makes the preset re-roll the band gains instead of
 #                 using the values above
 
 [[preset]]
 name = "White"
-bands_db = [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00]
+bands_db = [1.69, -0.15, 0.08, 0.07, 0.28, -0.08, -0.73, -1.17]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
+trim_db = -36.96
 
 [[preset]]
 name = "Pink"
-bands_db = [15.06, 11.33, 7.59, 3.85, 0.11, -3.62, -7.36, -11.10]
+bands_db = [18.09, 11.30, 6.50, 3.47, 0.08, -3.59, -7.71, -12.29]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
+trim_db = -37.77
 
 [[preset]]
 name = "Brown"
-bands_db = [30.13, 22.65, 15.18, 7.70, 0.23, -7.25, -14.72, -22.19]
+bands_db = [33.53, 22.90, 11.65, 6.79, 1.74, -2.98, -12.78, -29.11]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
+trim_db = -41.70
 
 [[preset]]
 name = "Violet"
@@ -52,131 +47,30 @@ bands_db = [-15.06, -11.33, -7.59, -3.85, -0.11, 3.62, 7.36, 11.10]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
 
 [[preset]]
 name = "Grey"
-bands_db = [-24.00, -18.39, -9.88, -6.00, -9.87, -5.14, -6.38, -24.00]
+bands_db = [22.42, 4.76, -11.12, -17.03, -19.64, -25.11, -28.77, -29.16]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
+trim_db = -36.62
 
 [[preset]]
 name = "Infra"
-bands_db = [12.00, 6.00, -6.00, -12.00, -18.00, -18.00, -18.00, -18.00]
+bands_db = [70.83, 53.12, 24.04, 11.89, 0.11, -11.66, -29.96, -80.00]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
+trim_db = -54.91
 
 [[preset]]
 name = "Ultra"
-bands_db = [-18.00, -18.00, -18.00, -12.00, -6.00, 6.00, 12.00, 12.00]
+bands_db = [-46.79, -41.15, -23.60, -8.48, 2.90, 10.91, 25.35, 38.85]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "31 Hz"
-bands_db = [12.00, -6.00, -3.00, 0.00, 0.00, 0.00, 0.00, 0.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "73 Hz"
-bands_db = [-6.00, 12.00, -6.00, -3.00, 0.00, 0.00, 0.00, 0.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "173 Hz"
-bands_db = [-3.00, -6.00, 12.00, -6.00, -3.00, 0.00, 0.00, 0.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "411 Hz"
-bands_db = [0.00, -3.00, -6.00, 12.00, -6.00, -3.00, 0.00, 0.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "974 Hz"
-bands_db = [0.00, 0.00, -3.00, -6.00, 12.00, -6.00, -3.00, 0.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "2.3 kHz"
-bands_db = [0.00, 0.00, 0.00, -3.00, -6.00, 12.00, -6.00, -3.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "5.5 kHz"
-bands_db = [0.00, 0.00, 0.00, 0.00, -3.00, -6.00, 12.00, -6.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
-
-[[preset]]
-name = "13.0 kHz"
-bands_db = [0.00, 0.00, 0.00, 0.00, 0.00, -3.00, -6.00, 12.00]
-seed = 0
-warp = "Reset"
-width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
+trim_db = -56.25
 
 [[preset]]
 name = "Vocal Mask"
@@ -184,10 +78,6 @@ bands_db = [-12.00, -12.00, -6.00, 0.00, 6.00, 9.00, 6.00, 3.00]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
 
 [[preset]]
 name = "Low & Warm"
@@ -195,10 +85,6 @@ bands_db = [3.00, 3.00, 9.00, 9.00, 3.00, 0.00, -3.00, -6.00]
 seed = 0
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
 
 [[preset]]
 name = "Randomize"
@@ -206,8 +92,4 @@ bands_db = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 seed = 1
 warp = "Reset"
 width = "Normal"
-drift_shape = "Soft"
-drift_voices = 1
-drift_speed = "Normal"
-drift_range = "set→Low"
 randomize = true

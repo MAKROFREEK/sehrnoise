@@ -72,11 +72,12 @@ pub const DECOUPLING: [[f32; NUM_BANDS]; NUM_BANDS] = [
 
 /// The largest filter gain the de-coupling is allowed to ask for, in dB.
 ///
-/// The user-facing range is ±24 dB. The matrix can ask for more than that,
-/// because it undoes the overlap of the filters, but not without limit: a
-/// very large gain in one filter would make the band's neighbours audibly
-/// wrong.
-pub const MAX_FILTER_GAIN_DB: f32 = 60.0;
+/// The user-facing range is ±80 dB (T7.3 widened it from ±24 so the
+/// reference-matched presets fit), and the matrix can ask for more than
+/// that, because it undoes the overlap of the filters: the reference-matched
+/// Infra preset asks for about 94 dB. 120 leaves headroom without letting a
+/// very large gain in one filter make the band's neighbours audibly wrong.
+pub const MAX_FILTER_GAIN_DB: f32 = 120.0;
 
 /// Turn the wanted band levels into the filter gains that produce them.
 pub fn decouple(levels: &[f32; NUM_BANDS]) -> [f32; NUM_BANDS] {

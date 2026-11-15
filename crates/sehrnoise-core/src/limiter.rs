@@ -1,7 +1,10 @@
 //! A look-ahead-free peak limiter with a soft knee.
 
 /// The default ceiling, in dBFS.
-pub const DEFAULT_CEILING_DB: f32 = -1.0;
+///
+/// The ceiling is not a user control: the limiter is a safety net for the
+/// listener's ears and equipment, and it is always there.
+pub const DEFAULT_CEILING_DB: f32 = -6.0;
 
 /// The soft knee width, in dB.
 pub const KNEE_DB: f32 = 3.0;

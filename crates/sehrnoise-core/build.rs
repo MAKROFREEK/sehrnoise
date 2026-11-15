@@ -21,38 +21,9 @@ struct PresetFile {
     #[serde(default)]
     width: Option<String>,
     #[serde(default)]
-    drift_shape: Option<String>,
-    #[serde(default)]
-    drift_voices: Option<DriftVoices>,
-    #[serde(default)]
-    drift_speed: Option<String>,
-    #[serde(default)]
-    drift_range: Option<String>,
-    #[serde(default)]
     randomize: bool,
-}
-
-/// The number of drift voices, written either as a number or as a name.
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum DriftVoices {
-    Count(u8),
-    Name(String),
-}
-
-impl DriftVoices {
-    fn count(&self) -> u8 {
-        match self {
-            DriftVoices::Count(n) => *n,
-            DriftVoices::Name(name) => match name.as_str() {
-                "Solo" => 1,
-                "Duo" => 2,
-                "Trio" => 3,
-                "Quad" => 4,
-                other => panic!("unknown drift voice count: {other}"),
-            },
-        }
-    }
+    #[serde(default)]
+    trim_db: f32,
 }
 
 #[derive(Deserialize)]
@@ -124,17 +95,14 @@ fn main() {
 
         let warp = warp_variant(preset.warp.as_deref());
         let width = width_variant(preset.width.as_deref());
-        let shape = drift_shape_variant(preset.drift_shape.as_deref());
-        let speed = drift_speed_variant(preset.drift_speed.as_deref());
-        let range = drift_range_variant(preset.drift_range.as_deref());
-        let voices = preset.drift_voices.as_ref().map_or(1, DriftVoices::count);
 
         let _ = writeln!(
             out,
-            "    Preset {{\n        name: {:?},\n        bands_db: [{bands}],\n        seed: {},\n        warp: {warp},\n        width: {width},\n        drift_shape: {shape},\n        drift_voices: {voices},\n        drift_speed: {speed},\n        drift_range: {range},\n        randomize: {},\n    }},",
+            "    Preset {{\n        name: {:?},\n        bands_db: [{bands}],\n        seed: {},\n        warp: {warp},\n        width: {width},\n        randomize: {},\n        output_trim_db: {:?},\n    }},",
             preset.name,
             preset.seed,
             preset.randomize,
+            preset.trim_db,
         );
     }
 
@@ -155,41 +123,8 @@ fn width_variant(value: Option<&str>) -> String {
     match value {
         Some("Mono") => "Width::Mono".to_string(),
         Some("Wide") => "Width::Wide".to_string(),
-        Some("Super Wide") => "Width::SuperWide".to_string(),
         Some("Normal") => "Width::Normal".to_string(),
         Some(other) => panic!("unknown width: {other}"),
         None => "Width::Normal".to_string(),
-    }
-}
-
-fn drift_shape_variant(value: Option<&str>) -> String {
-    match value {
-        Some("Hard") => "DriftShape::Hard".to_string(),
-        Some("Soft") => "DriftShape::Soft".to_string(),
-        Some(other) => panic!("unknown drift shape: {other}"),
-        None => "DriftShape::Soft".to_string(),
-    }
-}
-
-fn drift_speed_variant(value: Option<&str>) -> String {
-    match value {
-        Some("÷8") => "DriftSpeed::Div8".to_string(),
-        Some("÷4") => "DriftSpeed::Div4".to_string(),
-        Some("÷2") => "DriftSpeed::Div2".to_string(),
-        Some("×2") => "DriftSpeed::Mul2".to_string(),
-        Some("×4") => "DriftSpeed::Mul4".to_string(),
-        Some("×8") => "DriftSpeed::Mul8".to_string(),
-        Some("Normal") => "DriftSpeed::Normal".to_string(),
-        Some(other) => panic!("unknown drift speed: {other}"),
-        None => "DriftSpeed::Normal".to_string(),
-    }
-}
-
-fn drift_range_variant(value: Option<&str>) -> String {
-    match value {
-        Some("High←set") => "DriftRange::HighToSet".to_string(),
-        Some("set→Low") => "DriftRange::SetToLow".to_string(),
-        Some(other) => panic!("unknown drift range: {other}"),
-        None => "DriftRange::SetToLow".to_string(),
     }
 }

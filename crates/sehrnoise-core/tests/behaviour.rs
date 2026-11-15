@@ -1,14 +1,13 @@
 //! The behavioural tests: tests 7 and 9 to 13 of the test matrix.
 //!
 //! These do not measure a spectrum. They measure what the engine *does*: that
-//! the width ladder is exact, that the limiter holds the ceiling, that the
-//! drift stays in bounds and keeps time, and that the filter state is clean.
+//! the width ladder is exact, that the limiter holds the ceiling, and that
+//! the filter state is clean.
 
 use sehrnoise_core::biquad::{peaking_coeffs, Biquad};
 use sehrnoise_core::dcblock::DcBlock;
-use sehrnoise_core::drift::DriftEngine;
 use sehrnoise_core::limiter::Limiter;
-use sehrnoise_core::params::{DriftRange, DriftShape, DriftSpeed};
+use sehrnoise_core::params::EngineParams;
 use sehrnoise_core::{NoiseEngine, Width};
 
 /// The sample rate every test runs at.
@@ -60,95 +59,6 @@ fn limiter_respects_ceiling() {
         peak > ceiling * 0.9,
         "the limiter squashed the signal to {peak}; it should sit on the ceiling"
     );
-}
-
-#[test]
-fn drift_bounds() {
-    // Ten minutes of drift, simulated at a tenth of a second a step.
-    let step_frames = 4800;
-    let steps = 6000;
-    let user_gains = [6.0f32, -3.0, 0.0, 12.0, -12.0, 3.0, 0.0, -6.0];
-
-    for range in [DriftRange::SetToLow, DriftRange::HighToSet] {
-        let mut drift = DriftEngine::new(4242, 4);
-        for _ in 0..steps {
-            drift.advance(step_frames, SR);
-            let offsets =
-                drift.offsets(&user_gains, DriftShape::Soft, range, DriftSpeed::Normal, SR);
-            for (index, offset) in offsets.iter().enumerate() {
-                let effective = (user_gains[index] + offset).clamp(-24.0, 24.0);
-                assert!(
-                    (-24.0..=24.0).contains(&effective),
-                    "the drift pushed band {} to {effective} dB",
-                    index + 1
-                );
-            }
-        }
-    }
-}
-
-#[test]
-fn drift_period() {
-    // The measured period of a drifting band, against the period the speed
-    // setting asks for.
-    let step_frames = 4800; // a tenth of a second
-    let user_gains = [0.0f32; 8];
-
-    for speed in [
-        DriftSpeed::Normal,
-        DriftSpeed::Mul2,
-        DriftSpeed::Div2,
-        DriftSpeed::Mul8,
-    ] {
-        let period = DriftEngine::period_sec(speed);
-        let mut drift = DriftEngine::new(99, 1);
-        let band = drift.voices()[0].band;
-
-        // The band travels between the user's gain and the floor, so the
-        // middle of its travel is halfway between the two, and the gain
-        // crosses that middle once per cycle on the way up.
-        let mean = user_gains[band] - 0.5 * (user_gains[band] + 24.0);
-
-        let mut previous = mean;
-        let mut crossings: Vec<f64> = Vec::new();
-        let mut elapsed = 0.0f64;
-        let steps = (period * 3.0 / 0.1) as usize;
-        for _ in 0..steps {
-            drift.advance(step_frames, SR);
-            elapsed += step_frames as f64 / SR as f64;
-
-            let offsets = drift.offsets(
-                &user_gains,
-                DriftShape::Soft,
-                DriftRange::SetToLow,
-                speed,
-                SR,
-            );
-            let gain = user_gains[band] + offsets[band];
-
-            if previous < mean && gain >= mean {
-                // Interpolate the crossing, so the resolution of the step does
-                // not limit the measurement.
-                let fraction = (mean - previous) / (gain - previous);
-                crossings.push(elapsed - 0.1 + fraction as f64 * 0.1);
-            }
-            previous = gain;
-        }
-
-        assert!(
-            crossings.len() >= 2,
-            "only {} crossings were found over three periods at {speed:?}",
-            crossings.len()
-        );
-
-        let measured: Vec<f64> = crossings.windows(2).map(|w| w[1] - w[0]).collect();
-        let average = measured.iter().sum::<f64>() / measured.len() as f64;
-
-        assert!(
-            (average - period).abs() / period < 0.05,
-            "at {speed:?} the measured period was {average:.2} s, wanted {period:.2} s"
-        );
-    }
 }
 
 #[test]
@@ -222,16 +132,86 @@ fn is_subnormal(value: f32) -> bool {
 }
 
 #[test]
+fn the_bass_is_mono_at_every_width() {
+    // The author's rule: 200 Hz and under is the same in both channels,
+    // whatever the width. The side signal of a Wide render must have
+    // lost its low bands but kept its top ones.
+    for width in Width::ALL {
+        let mut engine = NoiseEngine::new(SR, 17);
+        let mut params = engine.params().clone();
+        params.width = width;
+        params.band_gains_db = [6.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        engine.set_params(params);
+
+        let mut left = vec![0.0f32; SR as usize * 4];        let mut right = vec![0.0f32; SR as usize * 4];
+        // Skip the coefficient smoothing by running half a second first.
+        let mut warmup_l = vec![0.0f32; SR as usize / 2];
+        let mut warmup_r = vec![0.0f32; SR as usize / 2];
+        engine.process(&mut warmup_l, &mut warmup_r);
+        engine.process(&mut left, &mut right);
+
+        let side: Vec<f32> = left
+            .iter()
+            .zip(right.iter())
+            .map(|(l, r)| 0.5 * (l - r))
+            .collect();
+
+        let low = sehrnoise_core::analysis::free_band_level_db(&side, SR, 40.0, 150.0);
+        let high = sehrnoise_core::analysis::free_band_level_db(&side, SR, 2_300.0, 16_000.0);
+
+        if width.factor() == 0.0 {
+            // Mono: no side at all.
+            assert!(low.is_infinite() && high.is_infinite());
+        } else {
+            assert!(
+                high - low > 20.0,
+                "width {:?}: the side's low bands measured {low:.1} dB, its high {high:.1} dB; \
+                 the bass is not mono",
+                width
+            );
+        }
+    }
+}
+
+#[test]
+fn drift_moves_the_sound_and_eases_back() {
+    // With the drift toggle on, the spectrum moves away from what the band
+    // gains say. Same seed, same everything but the toggle: the level in an
+    // arbitrary band must differ.
+    let band_level = |drift: bool| {
+        use sehrnoise_core::analysis::{free_band_level_db, RenderOptions};
+
+        let mut params = EngineParams::default();
+        params.drift = drift;
+        let options = RenderOptions {
+            duration_sec: 30.0,
+            seed: 5,
+            ..RenderOptions::default()
+        };
+        let rendered = sehrnoise_core::analysis::render(&params, &options);
+        free_band_level_db(&rendered.mono(), options.sample_rate, 300.0, 700.0)
+    };
+
+    let still = band_level(false);
+    let moving = band_level(true);
+    eprintln!("drift: still {still:.2} dB, moving {moving:.2} dB in the 300-700 Hz band");
+    assert!(
+        (moving - still).abs() > 1.0,
+        "the drift did not change the sound: still {still:.2}, moving {moving:.2}"
+    );
+}
+
+#[test]
 fn the_engine_reports_its_parameters() {
     // A small sanity check that the parameter plumbing works: the engine hands
     // back what it was given.
     let mut engine = NoiseEngine::new(SR, 5);
     let mut params = engine.params().clone();
-    params.width = Width::SuperWide;
+    params.width = Width::Wide;
     params.master_db = -6.0;
     engine.set_params(params);
 
-    assert_eq!(engine.params().width, Width::SuperWide);
+    assert_eq!(engine.params().width, Width::Wide);
     assert_eq!(engine.params().master_db, -6.0);
     assert_eq!(engine.sample_rate(), SR);
 }

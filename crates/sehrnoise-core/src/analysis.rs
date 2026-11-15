@@ -77,11 +77,6 @@ pub struct RenderOptions {
     /// Measurement wants the linear part of the chain, so the master is pulled
     /// down far enough that the limiter never engages.
     pub master_db: f32,
-    /// Whether the drift runs while measuring.
-    ///
-    /// Off by default: the drift moves the band gains, so a measurement of a
-    /// drifting preset describes a moment, not the preset.
-    pub drift: bool,
     /// The block size handed to the engine.
     pub block: usize,
 }
@@ -94,7 +89,6 @@ impl Default for RenderOptions {
             settle_sec: 0.5,
             seed: 1,
             master_db: -30.0,
-            drift: false,
             block: 4096,
         }
     }
@@ -133,11 +127,6 @@ impl Rendered {
 pub fn render(params: &EngineParams, options: &RenderOptions) -> Rendered {
     let mut params = params.clone();
     params.master_db = options.master_db;
-    if !options.drift {
-        // Zero voices means no drift. The user interface only offers one to
-        // four, but a measurement wants the band gains to stay put.
-        params.drift_voices = 0;
-    }
 
     let sample_rate = options.sample_rate.max(1.0);
     let mut engine = NoiseEngine::new(sample_rate, options.seed);
@@ -481,6 +470,17 @@ fn band_level(psd: &[f64], df: f64, low_hz: f64, high_hz: f64) -> f64 {
     } else {
         0.0
     }
+}
+
+/// The level of an arbitrary frequency band, in dB per Hz.
+///
+/// The same measurement the eight bands get, but over edges the caller
+/// chooses. This is how a region outside the band bank is measured — for
+/// example the octave above the top band, where the bank has no filter.
+pub fn free_band_level_db(mono: &[f32], sample_rate: f32, low_hz: f64, high_hz: f64) -> f64 {
+    let psd = power_spectral_density(mono, sample_rate as f64);
+    let df = sample_rate as f64 / psd.segment as f64;
+    to_db(band_level(&psd.values, df, low_hz, high_hz))
 }
 
 /// Fit a straight line through the band levels.

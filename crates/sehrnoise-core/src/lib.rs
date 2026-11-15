@@ -25,8 +25,7 @@ pub mod width;
 pub use analysis::{measure, render, BandLevel, Measurement, RenderOptions};
 pub use bands::{Band, NUM_BANDS};
 pub use decoupling::{decouple, DECOUPLING};
+pub use limiter::DEFAULT_CEILING_DB;
 pub use preset::{preset_by_name, preset_index, Preset, PRESETS};
 pub use engine::NoiseEngine;
-pub use params::{
-    DriftRange, DriftShape, DriftSpeed, EngineParams, Warp, Width, BAND_NAMES,
-};
+pub use params::{EngineParams, Warp, Width, BAND_NAMES};

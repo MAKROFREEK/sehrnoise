@@ -33,7 +33,6 @@ options:
   --renders <n>         how many independent renders to average (default: 1)
   --seed <n>            the seed of the noise (default: 1)
   --master <db>         the master gain used while measuring (default: -30)
-  --drift               let the drift run while measuring
   --slope-range <lo:hi> the frequency range the slope is fitted over
                          (default: 40:16000)
   --json                print the report as JSON
@@ -96,7 +95,6 @@ struct Options {
     renders: usize,
     seed: u64,
     master: f32,
-    drift: bool,
     slope_low: f64,
     slope_high: f64,
 }
@@ -116,7 +114,6 @@ impl Options {
             renders: 1,
             seed: 1,
             master: -30.0,
-            drift: false,
             slope_low: 40.0,
             slope_high: 16_000.0,
         };
@@ -144,7 +141,6 @@ impl Options {
                 "--list" => options.list = true,
                 "--all" => options.all = true,
                 "--json" => options.json = true,
-                "--drift" => options.drift = true,
                 "--preset" => options.preset = Some(value("--preset")?),
                 "--sample-rate" => {
                     options.sample_rate = value("--sample-rate")?
@@ -208,7 +204,6 @@ impl Options {
             duration_sec: self.duration,
             seed: self.seed,
             master_db: self.master,
-            drift: self.drift,
             ..RenderOptions::default()
         }
     }
@@ -246,14 +241,13 @@ fn average_measurements(measurements: &[Measurement], slope_range: (f64, f64)) -
 fn print_report((name, measurement): &(String, Measurement), options: &Options) {
     println!("{name}");
     println!(
-        "  {:.1} kHz · {:.1} s · {} render{} · seed {} · master {:.1} dB · drift {} · limiter {}",
+        "  {:.1} kHz · {:.1} s · {} render{} · seed {} · master {:.1} dB · limiter {}",
         options.sample_rate / 1000.0,
         options.duration,
         options.renders,
         if options.renders == 1 { "" } else { "s" },
         options.seed,
         options.master,
-        if options.drift { "on" } else { "off" },
         if measurement.limiter_gr_db > -0.01 {
             "inactive"
         } else {

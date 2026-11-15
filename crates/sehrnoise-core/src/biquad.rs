@@ -46,6 +46,40 @@ pub fn peaking_coeffs(f0: f32, q: f32, gain_db: f32, sample_rate: f32) -> Coeffs
     }
 }
 
+/// Compute the coefficients of an RBJ high-pass section.
+///
+/// From Robert Bristow-Johnson's *Audio EQ Cookbook*:
+///
+/// ```text
+/// w0    = 2*pi*f0/fs
+/// alpha = sin(w0) / (2*Q)
+/// b0 =  (1 + cos(w0))/2   b1 = -(1 + cos(w0))   b2 =  (1 + cos(w0))/2
+/// a0 =  1 + alpha         a1 = -2*cos(w0)       a2 =  1 - alpha
+/// ```
+///
+/// The result is normalised by `a0` so that `a0 == 1`.
+pub fn highpass_coeffs(f0: f32, q: f32, sample_rate: f32) -> Coeffs {
+    let w0 = 2.0 * std::f32::consts::PI * f0 / sample_rate;
+    let sin_w0 = w0.sin();
+    let cos_w0 = w0.cos();
+    let alpha = sin_w0 / (2.0 * q);
+
+    let b0 = (1.0 + cos_w0) / 2.0;
+    let b1 = -(1.0 + cos_w0);
+    let b2 = (1.0 + cos_w0) / 2.0;
+    let a0 = 1.0 + alpha;
+    let a1 = -2.0 * cos_w0;
+    let a2 = 1.0 - alpha;
+
+    Coeffs {
+        b0: b0 / a0,
+        b1: b1 / a0,
+        b2: b2 / a0,
+        a1: a1 / a0,
+        a2: a2 / a0,
+    }
+}
+
 /// Samples whose magnitude is below this are treated as silence.
 ///
 /// Filtering a signal that decays into the denormal range costs a lot of CPU on

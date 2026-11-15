@@ -2,7 +2,7 @@
 //!
 //! ```text
 //!   white L ─┐
-//!            ├─► 8 × peaking biquad ─► width ─► DC block ─► master ─► limiter ─► out
+//!            ├─► 8 × peaking biquad ─► width (bass mono) ─► DC block ─► master ─► limiter ─► out
 //!   white R ─┘
 //! ```
 //!
@@ -12,12 +12,12 @@
 use crate::bands::{band_centre, clamp_gain_db, NUM_BANDS};
 use crate::biquad::{peaking_coeffs, Biquad};
 use crate::dcblock::DcBlock;
-use crate::drift::DriftEngine;
+use crate::drift::Drift;
 use crate::limiter::Limiter;
 use crate::params::EngineParams;
 use crate::rng::{derive_seed, NoiseSource, WhiteSource};
-use crate::warp::{tilt_offset_db, WarpState};
-use crate::width::apply_width;
+use crate::warp::tilt_offset_db;
+use crate::width::BassMono;
 
 /// The time constant used to smooth the band gains, in seconds.
 pub const GAIN_SMOOTH_SEC: f32 = 0.030;
@@ -40,8 +40,8 @@ pub struct NoiseEngine {
     /// Samples left before the coefficients are recomputed.
     coeff_countdown: usize,
     gain_smooth_coef: f32,
-    drift: DriftEngine,
-    warp: WarpState,
+    drift: Drift,
+    bass_mono: BassMono,
     dc_l: DcBlock,
     dc_r: DcBlock,
     limiter: Limiter,
@@ -67,8 +67,8 @@ impl NoiseEngine {
             smoothed_gain_db: [0.0; NUM_BANDS],
             coeff_countdown: 0,
             gain_smooth_coef: 1.0 - (-1.0 / (sr * GAIN_SMOOTH_SEC)).exp(),
-            drift: DriftEngine::new(seed, 1),
-            warp: WarpState::new(),
+            drift: Drift::new(seed),
+            bass_mono: BassMono::new(sr),
             dc_l: DcBlock::new(sr),
             dc_r: DcBlock::new(sr),
             limiter: Limiter::new(sr),
@@ -98,17 +98,24 @@ impl NoiseEngine {
     pub fn set_params(&mut self, params: EngineParams) {
         self.params = params;
         self.limiter.set_ceiling_db(self.params.limiter_ceiling_db);
-        let voices = self.params.drift_voices;
-        self.drift.set_voice_count(voices);
     }
 
-    /// Restart the noise and the drift animation from a new seed.
+    /// Restart the noise from a new seed.
     pub fn reseed(&mut self, seed: u64) {
         self.seed = seed;
         self.source_l.reset(derive_seed(seed, 0));
         self.source_r.reset(derive_seed(seed, 1));
-        self.drift.reseed(seed);
-        self.warp.reset();
+        // The drift journeys start from fresh positions too, so a reseed
+        // really is a fresh start.
+        self.drift = Drift::new(seed);
+    }
+
+    /// The offset the drift is currently applying to each band, in dB.
+    ///
+    /// The panel reads these so the sliders can show what the bands are
+    /// actually doing while the drift runs.
+    pub fn drift_offsets_db(&self) -> [f32; NUM_BANDS] {
+        self.drift.offsets_db()
     }
 
     /// Clear the filter state.
@@ -120,6 +127,7 @@ impl NoiseEngine {
         }
         self.dc_l.flush();
         self.dc_r.flush();
+        self.bass_mono.flush();
         self.limiter.reset();
     }
 
@@ -163,19 +171,13 @@ impl NoiseEngine {
 
     /// Work out the gain each band is heading towards.
     fn update_target_gains(&mut self) {
-        let tilt = self.warp.tilt_db_per_oct(self.params.warp);
-        let drift = self.drift.offsets(
-            &self.params.band_gains_db,
-            self.params.drift_shape,
-            self.params.drift_range,
-            self.params.drift_speed,
-            self.sample_rate,
-        );
+        let tilt = self.params.warp.steady_tilt_db_per_oct();
+        let drift_offsets = self.drift.offsets_db();
 
         for band in 0..NUM_BANDS {
             // The drift offset is clamped together with the user's gain; the
             // warp tilt is deliberately not (D9).
-            let base = clamp_gain_db(self.params.band_gains_db[band] + drift[band]);
+            let base = clamp_gain_db(self.params.band_gains_db[band] + drift_offsets[band]);
             self.target_gain_db[band] = base + tilt_offset_db(tilt, band_centre(band));
         }
     }
@@ -187,11 +189,15 @@ impl NoiseEngine {
             return;
         }
 
-        self.drift.advance(frames, self.sample_rate);
-        self.warp.advance(frames, self.sample_rate);
+        self.drift.advance(frames, self.sample_rate, self.params.drift);
         self.update_target_gains();
 
-        let master_gain = 10f32.powf(self.params.master_db / 20.0);
+        // The master the user asked for, plus the active preset's output
+        // trim (T7.3): a preset that shapes its spectrum with very large
+        // band gains arrives very hot, and its trim keeps it out of the
+        // limiter so the shape survives.
+        let master_gain =
+            10f32.powf((self.params.master_db + self.params.output_trim_db) / 20.0);
         self.master_gain = master_gain;
 
         for i in 0..frames {
@@ -215,8 +221,9 @@ impl NoiseEngine {
                 r = self.filters[band][1].process(r);
             }
 
-            // Stereo width.
-            let (l, r) = apply_width(l, r, self.params.width);
+            // Stereo width, bass mono: 200 Hz and under is the same in both
+            // channels at every width setting.
+            let (l, r) = self.bass_mono.apply(l, r, self.params.width);
 
             // DC block, master gain, limiter.
             let mut l = self.dc_l.process(l) * self.master_gain;

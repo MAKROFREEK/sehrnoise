@@ -5,7 +5,7 @@
 //! can be retuned by editing text.
 
 use crate::bands::NUM_BANDS;
-use crate::params::{DriftRange, DriftShape, DriftSpeed, EngineParams, Warp, Width};
+use crate::params::{EngineParams, Warp, Width};
 
 include!(concat!(env!("OUT_DIR"), "/presets_generated.rs"));
 
@@ -16,22 +16,24 @@ pub struct Preset {
     pub name: &'static str,
     /// The gain of each band, in dB.
     pub bands_db: [f32; NUM_BANDS],
-    /// The seed of the drift animation.
+    /// The seed of the random curve.
     pub seed: u64,
     /// Spectral tilt.
     pub warp: Warp,
     /// Stereo width.
     pub width: Width,
-    /// Drift shape.
-    pub drift_shape: DriftShape,
-    /// Number of drift voices.
-    pub drift_voices: u8,
-    /// Drift rate.
-    pub drift_speed: DriftSpeed,
-    /// Drift range.
-    pub drift_range: DriftRange,
     /// Whether choosing this preset re-rolls the band gains.
     pub randomize: bool,
+    /// The output trim this preset plays at, in dB, added to the master
+    /// gain (T7.3).
+    ///
+    /// Presets that shape the spectrum with very large band gains produce a
+    /// very hot signal; without a trim, the limiter would engage constantly
+    /// and smear the very spectrum the preset is asking for. The trim puts
+    /// each reference-matched preset's peak just under the limiter's
+    /// ceiling, so what plays is what was fitted. It is preset data, not a
+    /// user control — the master slider sits on top of it.
+    pub output_trim_db: f32,
 }
 
 impl Preset {
@@ -48,10 +50,7 @@ impl Preset {
             },
             warp: self.warp,
             width: self.width,
-            drift_shape: self.drift_shape,
-            drift_voices: self.drift_voices,
-            drift_speed: self.drift_speed,
-            drift_range: self.drift_range,
+            output_trim_db: self.output_trim_db,
             ..EngineParams::default()
         }
     }
@@ -73,7 +72,10 @@ mod tests {
 
     #[test]
     fn the_table_is_populated() {
-        assert!(PRESETS.len() >= 18, "only {} presets", PRESETS.len());
+        // Ten presets: White, Pink, Brown, Violet, Grey, Infra, Ultra,
+        // Vocal Mask, Low & Warm, Randomize. The band-peak presets were
+        // removed from the dropdown at the author's request (2026-11-12).
+        assert!(PRESETS.len() >= 10, "only {} presets", PRESETS.len());
         let names: Vec<&str> = PRESETS.iter().map(|p| p.name).collect();
         for wanted in ["White", "Pink", "Brown", "Violet", "Grey", "Randomize"] {
             assert!(names.contains(&wanted), "missing preset {wanted}");
@@ -81,19 +83,11 @@ mod tests {
     }
 
     #[test]
-    fn the_eight_band_peaks_are_present() {
-        for name in crate::params::BAND_NAMES {
-            assert!(
-                preset_by_name(name).is_some(),
-                "missing band peak preset {name}"
-            );
-        }
-    }
-
-    #[test]
     fn presets_can_be_looked_up() {
         assert_eq!(preset_index("Pink"), Some(1));
-        assert_eq!(preset_by_name("Pink").unwrap().bands_db[0], 15.06);
+        // Fitted to the author's reference recordings (T7.3); the value
+        // comes from `assets/presets.toml`.
+        assert_eq!(preset_by_name("Pink").unwrap().bands_db[0], 18.09);
         assert!(preset_by_name("Nonexistent").is_none());
     }
 }

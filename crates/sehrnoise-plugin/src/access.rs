@@ -10,13 +10,10 @@ use std::sync::Arc;
 use nice_plug::context::gui::GuiContext;
 use nice_plug::params::InternalParamMut;
 use nice_plug::prelude::*;
-use sehrnoise_core::{DriftRange, DriftShape, DriftSpeed, Warp, Width};
+use sehrnoise_core::{Warp, Width};
 
 use crate::control::Control;
-use crate::{
-    DriftRangeChoice, DriftShapeChoice, DriftSpeedChoice, DriftVoicesChoice, SehrNoiseParams,
-    WarpChoice, WidthChoice,
-};
+use crate::{SehrNoiseParams, WarpChoice, WidthChoice};
 
 /// The parameters of the plugin, as the user interface sees them.
 ///
@@ -35,22 +32,6 @@ pub trait ParamAccess {
     fn width(&self) -> Width;
     /// Set the stereo width.
     fn set_width(&self, width: Width);
-    /// The shape of the drift motion.
-    fn drift_shape(&self) -> DriftShape;
-    /// Set the shape of the drift motion.
-    fn set_drift_shape(&self, shape: DriftShape);
-    /// How many bands drift.
-    fn drift_voices(&self) -> u8;
-    /// Set how many bands drift.
-    fn set_drift_voices(&self, voices: u8);
-    /// How fast the drift runs.
-    fn drift_speed(&self) -> DriftSpeed;
-    /// Set how fast the drift runs.
-    fn set_drift_speed(&self, speed: DriftSpeed);
-    /// Which end of the range the drift oscillates between.
-    fn drift_range(&self) -> DriftRange;
-    /// Set which end of the range the drift oscillates between.
-    fn set_drift_range(&self, range: DriftRange);
     /// The master output gain, in dB.
     fn master_db(&self) -> f32;
     /// Set the master output gain, in dB.
@@ -59,10 +40,6 @@ pub trait ParamAccess {
     fn mute(&self) -> bool;
     /// Silence or unsilence the output.
     fn set_mute(&self, mute: bool);
-    /// The limiter ceiling, in dBFS.
-    fn ceiling_db(&self) -> f32;
-    /// Set the limiter ceiling, in dBFS.
-    fn set_ceiling_db(&self, db: f32);
     /// The index of the chosen preset.
     fn preset(&self) -> i32;
     /// Choose a preset.
@@ -71,11 +48,35 @@ pub trait ParamAccess {
     fn randomize(&self) -> bool;
     /// Arm or disarm the randomize trigger.
     fn set_randomize(&self, armed: bool);
-    /// How much the limiter is turning the signal down, in dB.
+    /// Whether the drift is running.
     ///
-    /// Zero means the limiter is not doing anything. It is not a parameter:
-    /// it is a reading, and it comes from the audio thread.
-    fn gain_reduction_db(&self) -> f32;
+    /// The drift is not a host parameter: it is a session-only toggle that
+    /// lives in the control block.
+    fn drift_on(&self) -> bool;
+    /// Start or stop the drift.
+    fn set_drift_on(&self, on: bool);
+    /// Which surface the preset dropdown shows: a preset, "Randomize" or
+    /// "Drift". One of the `MODE_` constants of [`crate::control`].
+    fn mode(&self) -> u8;
+    /// Say which surface the preset dropdown shows.
+    fn set_mode(&self, mode: u8);
+    /// Which user preset (an index past the built-in table) the panel is
+    /// showing, if any (T7.4).
+    ///
+    /// User presets live outside the host's parameters, so this is
+    /// session state like the mode and the drift: the dropdown's display
+    /// half. The values themselves travel through the band, warp and
+    /// width parameters as usual.
+    fn user_selected(&self) -> Option<usize>;
+    /// Say which user preset the panel is showing, or none.
+    fn set_user_selected(&self, index: Option<usize>);
+    /// The offset the drift is currently applying to a band, in dB.
+    ///
+    /// The panel adds it to the band's set value so the sliders show what
+    /// the bands are actually doing, and takes it away again when the user
+    /// moves a slider, so a drag during the drift sets the gain the user
+    /// pointed at rather than the drifted one.
+    fn drift_offset(&self, band: usize) -> f32;
 }
 
 /// The parameters as the editor sees them.
@@ -84,17 +85,17 @@ pub trait ParamAccess {
 /// stays in step and the change can be undone.
 pub struct EditorAccess {
     params: Arc<SehrNoiseParams>,
-    gui: GuiContext,
     control: Arc<Control>,
+    gui: GuiContext,
 }
 
 impl EditorAccess {
     /// A view of the parameters, writing through the host.
-    pub fn new(params: Arc<SehrNoiseParams>, gui: GuiContext, control: Arc<Control>) -> Self {
+    pub fn new(params: Arc<SehrNoiseParams>, control: Arc<Control>, gui: GuiContext) -> Self {
         Self {
             params,
-            gui,
             control,
+            gui,
         }
     }
 
@@ -152,44 +153,6 @@ impl ParamAccess for EditorAccess {
         self.set(&self.params.width, WidthChoice::from(width));
     }
 
-    fn drift_shape(&self) -> DriftShape {
-        self.params.drift_shape.value().into()
-    }
-
-    fn set_drift_shape(&self, shape: DriftShape) {
-        self.set(&self.params.drift_shape, DriftShapeChoice::from(shape));
-    }
-
-    fn drift_voices(&self) -> u8 {
-        self.params.drift_voices.value().count()
-    }
-
-    fn set_drift_voices(&self, voices: u8) {
-        let choice = match voices {
-            0 | 1 => DriftVoicesChoice::Solo,
-            2 => DriftVoicesChoice::Duo,
-            3 => DriftVoicesChoice::Trio,
-            _ => DriftVoicesChoice::Quad,
-        };
-        self.set(&self.params.drift_voices, choice);
-    }
-
-    fn drift_speed(&self) -> DriftSpeed {
-        self.params.drift_speed.value().into()
-    }
-
-    fn set_drift_speed(&self, speed: DriftSpeed) {
-        self.set(&self.params.drift_speed, DriftSpeedChoice::from(speed));
-    }
-
-    fn drift_range(&self) -> DriftRange {
-        self.params.drift_range.value().into()
-    }
-
-    fn set_drift_range(&self, range: DriftRange) {
-        self.set(&self.params.drift_range, DriftRangeChoice::from(range));
-    }
-
     fn master_db(&self) -> f32 {
         self.params.master.value()
     }
@@ -204,14 +167,6 @@ impl ParamAccess for EditorAccess {
 
     fn set_mute(&self, mute: bool) {
         self.set(&self.params.mute, mute);
-    }
-
-    fn ceiling_db(&self) -> f32 {
-        self.params.limiter_ceiling.value()
-    }
-
-    fn set_ceiling_db(&self, db: f32) {
-        self.set(&self.params.limiter_ceiling, db);
     }
 
     fn preset(&self) -> i32 {
@@ -230,8 +185,32 @@ impl ParamAccess for EditorAccess {
         self.set(&self.params.randomize, armed);
     }
 
-    fn gain_reduction_db(&self) -> f32 {
-        self.control.gain_reduction_db()
+    fn drift_on(&self) -> bool {
+        self.control.drift_on()
+    }
+
+    fn set_drift_on(&self, on: bool) {
+        self.control.set_drift_on(on);
+    }
+
+    fn mode(&self) -> u8 {
+        self.control.mode()
+    }
+
+    fn set_mode(&self, mode: u8) {
+        self.control.set_mode(mode);
+    }
+
+    fn user_selected(&self) -> Option<usize> {
+        self.control.user_selected()
+    }
+
+    fn set_user_selected(&self, index: Option<usize>) {
+        self.control.set_user_selected(index);
+    }
+
+    fn drift_offset(&self, band: usize) -> f32 {
+        self.control.drift_offset(band)
     }
 }
 
@@ -308,64 +287,6 @@ impl ParamAccess for InternalAccess {
         };
     }
 
-    fn drift_shape(&self) -> DriftShape {
-        self.params.drift_shape.value().into()
-    }
-
-    fn set_drift_shape(&self, shape: DriftShape) {
-        // Safety: as above.
-        unsafe {
-            self.params
-                .drift_shape
-                ._internal_set_plain_value(DriftShapeChoice::from(shape))
-        };
-    }
-
-    fn drift_voices(&self) -> u8 {
-        self.params.drift_voices.value().count()
-    }
-
-    fn set_drift_voices(&self, voices: u8) {
-        let choice = match voices {
-            0 | 1 => DriftVoicesChoice::Solo,
-            2 => DriftVoicesChoice::Duo,
-            3 => DriftVoicesChoice::Trio,
-            _ => DriftVoicesChoice::Quad,
-        };
-        // Safety: as above.
-        unsafe {
-            self.params
-                .drift_voices
-                ._internal_set_plain_value(choice)
-        };
-    }
-
-    fn drift_speed(&self) -> DriftSpeed {
-        self.params.drift_speed.value().into()
-    }
-
-    fn set_drift_speed(&self, speed: DriftSpeed) {
-        // Safety: as above.
-        unsafe {
-            self.params
-                .drift_speed
-                ._internal_set_plain_value(DriftSpeedChoice::from(speed))
-        };
-    }
-
-    fn drift_range(&self) -> DriftRange {
-        self.params.drift_range.value().into()
-    }
-
-    fn set_drift_range(&self, range: DriftRange) {
-        // Safety: as above.
-        unsafe {
-            self.params
-                .drift_range
-                ._internal_set_plain_value(DriftRangeChoice::from(range))
-        };
-    }
-
     fn master_db(&self) -> f32 {
         self.params.master.value()
     }
@@ -382,19 +303,6 @@ impl ParamAccess for InternalAccess {
     fn set_mute(&self, mute: bool) {
         // Safety: as above.
         unsafe { self.params.mute._internal_set_plain_value(mute) };
-    }
-
-    fn ceiling_db(&self) -> f32 {
-        self.params.limiter_ceiling.value()
-    }
-
-    fn set_ceiling_db(&self, db: f32) {
-        // Safety: as above.
-        unsafe {
-            self.params
-                .limiter_ceiling
-                ._internal_set_plain_value(db)
-        };
     }
 
     fn preset(&self) -> i32 {
@@ -419,7 +327,31 @@ impl ParamAccess for InternalAccess {
         };
     }
 
-    fn gain_reduction_db(&self) -> f32 {
-        self.control.gain_reduction_db()
+    fn drift_on(&self) -> bool {
+        self.control.drift_on()
+    }
+
+    fn set_drift_on(&self, on: bool) {
+        self.control.set_drift_on(on);
+    }
+
+    fn mode(&self) -> u8 {
+        self.control.mode()
+    }
+
+    fn set_mode(&self, mode: u8) {
+        self.control.set_mode(mode);
+    }
+
+    fn user_selected(&self) -> Option<usize> {
+        self.control.user_selected()
+    }
+
+    fn set_user_selected(&self, index: Option<usize>) {
+        self.control.set_user_selected(index);
+    }
+
+    fn drift_offset(&self, band: usize) -> f32 {
+        self.control.drift_offset(band)
     }
 }

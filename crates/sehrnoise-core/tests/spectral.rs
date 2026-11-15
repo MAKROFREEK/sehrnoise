@@ -7,7 +7,7 @@
 
 use sehrnoise_core::analysis::{average, measure, render, Measurement, RenderOptions};
 use sehrnoise_core::preset::preset_by_name;
-use sehrnoise_core::{EngineParams, Warp, Width, BAND_NAMES};
+use sehrnoise_core::{EngineParams, Warp, Width};
 
 /// The frequency range the slopes are fitted over.
 const SLOPE_RANGE: (f64, f64) = (40.0, 16_000.0);
@@ -44,7 +44,12 @@ fn levels(measurement: &Measurement) -> Vec<f64> {
 
 #[test]
 fn white_is_flat() {
-    let measurement = measure_preset("White", 20.0, 4);
+    // The engine's flat setting — all bands at 0 dB — has to measure flat.
+    // (The White *preset* is not this any more: since T7.3 it is fitted to
+    // the author's reference recording, which is itself slightly tilted at
+    // −0.14 dB per octave.)
+    let params = EngineParams::default();
+    let measurement = measure_params(&params, 20.0, 4);
 
     // The DC blocker is a first order high pass at 10 Hz, so the bottom of
     // the lowest band is quieter than the rest of the spectrum. The seven
@@ -98,43 +103,11 @@ fn violet_slope() {
     );
 }
 
-#[test]
-fn band_peak_isolates() {
-    for (index, name) in BAND_NAMES.iter().enumerate() {
-        let measurement = measure_preset(name, 8.0, 2);
-        let levels = levels(&measurement);
-        let target = levels[index];
-        let highest_other = levels
-            .iter()
-            .enumerate()
-            .filter(|(other, _)| *other != index)
-            .map(|(_, level)| *level)
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        // The target band is the loudest by a clear margin. The bank cannot
-        // do better than this: the filters are nearly two octaves wide, so a
-        // narrow peak would need filter gains of 40 dB and more, and the
-        // result would be a peak with echoes either side of it. See
-        // `sehrnoise_core::decoupling`.
-        assert!(
-            target > highest_other + 5.5,
-            "the {name} preset: the target band measured {target:.2} dB, the loudest other band {highest_other:.2} dB"
-        );
-
-        // The immediate neighbours are cut well below the target.
-        for neighbour in [index.wrapping_sub(1), index + 1] {
-            if neighbour >= levels.len() {
-                continue;
-            }
-            assert!(
-                levels[neighbour] < target - 12.0,
-                "the {name} preset: band {} measured {:.2} dB, the target is {target:.2} dB",
-                neighbour + 1,
-                levels[neighbour]
-            );
-        }
-    }
-}
+// The band-peak presets (test 5, `band_peak_isolates`) went with the
+// presets: the author removed all eight peak presets from the dropdown
+// (2026-11-12, first "73 Hz" and "13.0 kHz", then the remaining six).
+// The de-coupling matrix and §16's isolation findings are unchanged —
+// bring the test back with the presets if they return.
 
 /// Measure a set of parameters, averaged over a few independent renders.
 fn measure_params(params: &EngineParams, duration_sec: f64, renders: usize) -> Measurement {
@@ -164,18 +137,16 @@ fn warp_tilts() {
     };
 
     let flat = slope_of(Warp::Reset);
-    let faster = slope_of(Warp::Faster);
     let slower = slope_of(Warp::Slower);
 
     // The warp is a tilt of six decibels per octave (D9). The measured slope is
     // not exactly that, because the de-coupling of the band bank is a
     // linearisation taken at the flat spectrum and the bank is measured
     // through its band levels, but it is close.
-    eprintln!("warp: reset {flat:.2}, faster {faster:.2}, slower {slower:.2} dB per octave");
+    eprintln!("warp: reset {flat:.2}, slower {slower:.2} dB per octave");
     assert!(
-        (faster - flat - 6.0).abs() < 1.0,
-        "the warp added {:.2} dB per octave, wanted 6",
-        faster - flat
+        (flat - 0.0).abs() < 0.3,
+        "the default warp measured {flat:.2} dB per octave, wanted 0"
     );
     assert!(
         (slower - flat + 6.0).abs() < 1.0,

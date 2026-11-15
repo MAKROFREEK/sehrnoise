@@ -13,7 +13,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/sehrnoise/sehrnoise"
+repository = "https://github.com/makrofreek/sehrnoise"
 authors = ["sehrnoise contributors"]
 
 [workspace.dependencies]
@@ -22,6 +22,7 @@ nice-plug = { version = "0.4.2", default-features = false, features = ["editor",
 nice-plug-egui = "0.6.0"
 egui = { version = "0.37", features = ["default_fonts"] }
 rustfft = "6"
+x11rb = "0.13"
 
 [profile.release]
 opt-level = 3
