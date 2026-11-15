@@ -646,7 +646,8 @@ mod tests {
 
         // Band 0 was saved out of range on purpose; applying clamps it.
         for band in 0..NUM_BANDS {
-            let wanted = store.presets()[0].bands_db[band].clamp(-24.0, 24.0);
+            let wanted = store.presets()[0].bands_db[band]
+                .clamp(*BAND_RANGE.start(), *BAND_RANGE.end());
             assert_eq!(access.band_db(band), wanted);
         }
         assert_eq!(access.band_db(0), 80.0, "100 dB must clamp to the slider's range");
