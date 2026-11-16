@@ -213,7 +213,7 @@ pub fn draw(ui: &mut Ui) -> bool {
             // own clicks and only the empty parts of the bar move the
             // window.
             let bar_rect = ui.available_rect_before_wrap();
-            let pixels_per_point = ui.ctx().pixels_per_point();
+            let _pixels_per_point = ui.ctx().pixels_per_point();
             let drag = ui.interact(
                 bar_rect,
                 egui::Id::unique("sehrnoise_titlebar_drag"),
