@@ -20,10 +20,10 @@ pub struct UiActions {
 
 /// The range of a band slider.
 ///
-/// ±80 dB since T7.3: the reference-matched presets need the span (Infra's
-/// reference spectrum spans 111 dB across the bank), and the same range
-/// lets the user draw such curves by hand.
-pub const BAND_RANGE: std::ops::RangeInclusive<f32> = -80.0..=80.0;
+/// ±32 dB (the author, 2026-11-15: "call it a day"), matching the core's
+/// wanted-level range (`bands::MIN_BAND_GAIN_DB`). Brown's deepest wanted
+/// level (33.53 dB) clamps ~1.5 dB short on that band.
+pub const BAND_RANGE: std::ops::RangeInclusive<f32> = -32.0..=32.0;
 
 /// The range of the master slider.
 pub const MASTER_RANGE: std::ops::RangeInclusive<f32> = -60.0..=12.0;
@@ -650,7 +650,7 @@ mod tests {
                 .clamp(*BAND_RANGE.start(), *BAND_RANGE.end());
             assert_eq!(access.band_db(band), wanted);
         }
-        assert_eq!(access.band_db(0), 80.0, "100 dB must clamp to the slider's range");
+        assert_eq!(access.band_db(0), 32.0, "100 dB must clamp to the slider's range");
         assert_eq!(access.warp(), Warp::Slower);
         assert_eq!(access.width(), Width::Wide);
     }

@@ -19,13 +19,14 @@ pub const BAND_HIGH_HZ: f32 = 20_000.0;
 ///
 /// The ±24 dB the sliders used to span could not draw the author's
 /// reference spectra (T7.3): Infra's reference falls 13.65 dB per octave,
-/// a shape that spans 111 dB across the bank, far more than 48. The range
-/// is therefore the smallest round span above the fitted rows' needs — the
-/// six reference-matched presets fit inside ±80 with a little to spare.
-pub const MIN_BAND_GAIN_DB: f32 = -80.0;
+/// a shape that spans 111 dB across the bank. The author then chose
+/// **±32 dB** (2026-11-15: "call it a day, get it close, not shooting for
+/// perfection") — Brown's deepest wanted level (33.53 dB) clamps ~1.5 dB
+/// short on that band; every other preset fits.
+pub const MIN_BAND_GAIN_DB: f32 = -32.0;
 
 /// Maximum band gain, in dB. See [`MIN_BAND_GAIN_DB`].
-pub const MAX_BAND_GAIN_DB: f32 = 80.0;
+pub const MAX_BAND_GAIN_DB: f32 = 32.0;
 
 /// One band of the bank.
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -167,12 +167,12 @@ pub struct SehrNoiseParams {
 
 /// The gain range of a band slider.
 ///
-/// ±80 dB since T7.3, matching the core's wanted-level range: the
-/// reference-matched presets do not fit in ±24 (see
-/// `sehrnoise_core::bands::MIN_BAND_GAIN_DB`).
+/// ±32 dB (the author, 2026-11-15: "call it a day"), matching the core's
+/// wanted-level range (`sehrnoise_core::bands::MIN_BAND_GAIN_DB`). Brown's
+/// deepest wanted level (33.53 dB) clamps ~1.5 dB short on that band.
 const BAND_RANGE: FloatRange = FloatRange::Linear {
-    min: -80.0,
-    max: 80.0,
+    min: -32.0,
+    max: 32.0,
 };
 
 impl Default for SehrNoiseParams {

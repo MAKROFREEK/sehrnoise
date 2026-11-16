@@ -5,10 +5,10 @@
 # rebuild: `build.rs` turns it into the preset table the plugin and the
 # standalone app share.
 #
-# band_gains_db:  -80 .. +80 (T7.3 widened the range so the reference-matched
-#                 presets fit; the six curves below were fitted to the
-#                 recordings in `noise_references/` by `tools/spectest`
-#                 `refsolve`)
+# band_gains_db:  -32 .. +32 (the author, 2026-11-15: "call it a day"; Brown's
+#                 deepest band, 33.53 dB, clamps ~1.5 dB short; the six
+#                 curves below were fitted to the recordings in
+#                 `noise_references/` by `tools/spectest` `refsolve`)
 # trim_db:        the output trim the preset plays at, in dB, added to the
 #                 master gain. Keeps a heavily shaped preset out of the
 #                 limiter, so the spectrum that plays is the spectrum that
