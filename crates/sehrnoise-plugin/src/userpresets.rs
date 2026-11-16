@@ -373,7 +373,10 @@ mod tests {
         }
     }
 
+    // The XDG rules are the Linux ones; on Windows the paths above are
+    // not absolute, so the test would assert the wrong thing.
     #[test]
+    #[cfg(unix)]
     fn the_linux_config_directory_follows_the_xdg_rules() {
         // An absolute XDG_CONFIG_HOME wins.
         assert_eq!(
