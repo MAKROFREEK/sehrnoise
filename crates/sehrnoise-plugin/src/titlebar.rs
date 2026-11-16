@@ -213,7 +213,6 @@ pub fn draw(ui: &mut Ui) -> bool {
             // own clicks and only the empty parts of the bar move the
             // window.
             let bar_rect = ui.available_rect_before_wrap();
-            let _pixels_per_point = ui.ctx().pixels_per_point();
             let drag = ui.interact(
                 bar_rect,
                 egui::Id::unique("sehrnoise_titlebar_drag"),
@@ -225,6 +224,10 @@ pub fn draw(ui: &mut Ui) -> bool {
                 toggle_maximize();
             }
 
+            // Read once, before the columns borrow: the debug print below
+            // runs inside the closure and cannot reach `ui` again.
+            #[cfg(debug_assertions)]
+            let debug_pixels_per_point = ui.ctx().pixels_per_point();
             ui.columns(2, |columns| {
                 // T7.1 debugging aid: the bar's own geometry whenever it
                 // changes, so a headless verification can find the buttons
@@ -241,7 +244,7 @@ pub fn draw(ui: &mut Ui) -> bool {
                         bar_rect.max.y,
                     ];
                     if *last != Some(current) {
-                        eprintln!("titlebar: bar {bar_rect:?} ppp {pixels_per_point}");
+                        eprintln!("titlebar: bar {bar_rect:?} ppp {debug_pixels_per_point}");
                         *last = Some(current);
                     }
                 }
