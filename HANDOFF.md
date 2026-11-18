@@ -835,6 +835,14 @@ Author's answers: **proportional, capped**; hand-drawn title bar **removed** (co
 ### 23.3 State after this session
 
 - **99 tests green**, zero warnings (96 − 3 titlebar + 6 zoom).
-- Everything **uncommitted** (author has not asked).
-- Visual check by author still pending: standalone opened? **Not yet** (§21.3 rule — ask first). Verify: big window → bigger controls, default window unchanged, compositor bar back with working buttons.
 - Open after this: bass-mono toggle (scoped, not built), T6.3 (`cargo login`), CI Ubuntu/macOS unverified past fixes, untracked `.original.md` backups.
+
+### 23.4 Committed + released (v0.1.1, 2026-11-17)
+
+Author's verdict on T7.14: "almost perfect, MUCH MUCH better", **residual jitter while resizing** — minor, left as is, not ticketed. Then: "commit this to gh then make a release".
+
+- **Commits**: `4a06a5d` (T7.14 + titlebar removal + docs + `.idea/` gitignored — was untracked), `7cab38c` (version 0.1.1). Pushed to `main`.
+- **Tag `v0.1.1`**, release live: `https://github.com/MAKROFREEK/sehrnoise/releases/tag/v0.1.1`, standalone zip attached by hand (`sehrnoise-0.1.1-linux-x86_64-standalone.zip`, v0.1.0's shape: binary + README + LICENSE, one directory).
+- CI runs on the push + tag; `gh run watch` started — §22.5's rule stands: check `gh run list` before assuming the release job's per-OS archives arrived.
+
+**pgrep trap hit this session**: `pgrep -f sehrnoise-standalone` matches the calling shell's own `bash -c` (pattern in its command line) — PIDs that change between checks = own probes, not instances. Use `ps -eo pid,comm,args | grep -i sehrnoise | grep -v grep` to count instances for real (§15.1's warning, sharpened).
