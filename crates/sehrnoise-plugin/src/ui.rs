@@ -73,25 +73,17 @@ fn display_name(name: &str) -> String {
 /// The rows keep their current layout — the preset row, the band sliders,
 /// warp, width, master/mute, exactly as before — inside one invisible,
 /// content-sized box, and the box is anchored to the middle of the window
-/// (T7.10). Under the standalone's title bar the box centres in the space
-/// below the bar; the frozen plugin editor has no bar and centres in the
-/// whole window.
+/// (T7.10). The controls zoom with the window by way of egui's
+/// pixels-per-point (T7.14, in `editor.rs`); their sizes in logical points
+/// are constants of this module, so this code is unchanged by the zoom.
 ///
 /// The full-width separator that used to sit between the width row and
 /// the output row became vertical spacing: a separator spans whatever
 /// width is available, and inside the centred box that would be the whole
 /// window, not the box.
 pub fn draw(ui: &mut Ui, access: &dyn ParamAccess, store: &mut UserPresetStore) -> UiActions {
-    // Half the title bar pushes the box's centre down to the centre of
-    // the space below the bar.
-    let drop_below_bar = if crate::titlebar::running_as_standalone() {
-        crate::titlebar::BAR_HEIGHT / 2.0
-    } else {
-        0.0
-    };
-
     egui::Area::new(egui::Id::unique("sehrnoise_panel"))
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, drop_below_bar])
+        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
         .fade_in(false)
         .show(ui.ctx(), |ui| {
             // The box's width is pinned to the band row's width — eight

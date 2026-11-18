@@ -369,18 +369,18 @@ Decisions taken face to face; all implemented + tested this session:
       (content, excluding title bar), for plugin editor + standalone. Touch
       point: `EDITOR_SIZE` in plugin's `lib.rs`. **Done (2026-11-11):**
       `EDITOR_SIZE` = 575×310, band sliders shrunk to fit shorter panel.
-- [ ] **T7.14 Scale the controls with window size.** (Author, 2026-11-12,
+- [x] **T7.14 Scale the controls with window size.** (Author, 2026-11-12,
       screenshot of large window: control box keeps size, sits small in
-      middle — "looks kind of funny, should just be bigger.") Box is
-      content-sized, contents fixed (`SLIDER_SIZE`, `BAND_SPACING` 6, egui
-      default font sizes), so bigger window only adds empty space around it.
-      Controls should scale with window. Open questions: scale whole box
-      proportionally with window (font sizes, slider sizes, spacing all
-      following) vs. grow to generous maximum + stop; title bar's own
-      controls scale or stay fixed; how this sits with T7.9's 575×310
-      default, which must still look right (current sizes chosen to just fit
-      it). Watch T7.10's no-wiggle fixes — box width pinned to band row,
-      value fields as wide as column; scaling must not reintroduce breathing.
+      middle — "looks kind of funny, should just be bigger.") **Done
+      (2026-11-17):** author picked "proportional, capped"; zoom rides on
+      egui's pixels-per-point (`editor.rs::scale_for_window`, cap 2.0,
+      floor 0.5, design size = T7.9's 575×310 = zoom 1.0, so default
+      window unchanged). Box keeps its logical-point sizes, so T7.10's
+      no-wiggle fixes untouched. **Same session, author's call: the
+      hand-drawn title bar (T7.1) removed** — compositor draws its own bar
+      again; `titlebar.rs`, `x11rb` dep and its debug hooks deleted;
+      centred box anchors to the whole window again. Verified: 99 tests
+      green, zero warnings.
 
 Status as of the stop: see [HANDOFF.md](HANDOFF.md) for environment findings,
 verified toolchain results, measurement findings about band bank, deviations

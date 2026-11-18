@@ -25,7 +25,6 @@ use sehrnoise_core::{EngineParams, NoiseEngine, Warp, Width, DEFAULT_CEILING_DB,
 pub mod access;
 pub mod control;
 pub mod editor;
-pub mod titlebar;
 pub mod ui;
 pub mod userpresets;
 
@@ -34,8 +33,10 @@ use crate::control::{Control, MODE_PRESET, MODE_RANDOMIZE, SEED};
 
 /// The size of the editor window, in logical pixels.
 ///
-/// The size the author chose (T7.9): 575×310.
-const EDITOR_SIZE: [f32; 2] = [575.0, 310.0];
+/// The size the author chose (T7.9): 575×310. This is also the design
+/// size the controls are drawn at (T7.14): the window's size relative to
+/// this decides how much the controls zoom.
+pub(crate) const EDITOR_SIZE: [f32; 2] = [575.0, 310.0];
 
 /// How far the random curve reaches, in dB.
 const RANDOM_RANGE_DB: f32 = 12.0;

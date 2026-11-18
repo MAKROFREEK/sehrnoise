@@ -25,7 +25,3 @@ egui = { workspace = true }
 # user presets), read and written by the panel (T7.4).
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# The client-side title bar of the standalone application talks to the X
-# server directly: it strips the compositor's decorations and sends the
-# EWMH client messages for minimize, maximize and window move (T7.1).
-x11rb = { workspace = true }

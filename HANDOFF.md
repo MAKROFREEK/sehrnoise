@@ -6,13 +6,13 @@ Project state + everything fresh agent needs. Task list = [TASKS.md](TASKS.md); 
 
 ## 1. Where the project is
 
-Core DSP crate exists, compiles, tested. Measuring instrument exists, used to find real problem with band bank; fixed. Plugin + standalone exist, run; plugin's editor draws whole panel. Nothing committed to git — repo initialised, no commit, because vault's `AGENTS.md` says commit only when explicitly asked.
+Core DSP crate exists, compiles, tested. Measuring instrument exists, used to find real problem with band bank; fixed. Plugin + standalone exist, run; plugin's editor draws whole panel. Source pushed to GitHub (`https://github.com/MAKROFREEK/sehrnoise`, branch `main`, tag `v0.1.0`), release live.
 
 ```
 crates/sehrnoise-core/src/
   rng.rs        xoshiro256++ + the NoiseSource trait
   biquad.rs     RBJ peaking EQ + high-pass, direct form I, denormal flush
-  bands.rs      the eight-band table
+  bands.rs      the eight-band table (gain range −32..+32, §22)
   params.rs     enums + EngineParams (drift is a bool, not a control)
   curves.rs     slope curves, band peaks, random curves
   warp.rs       the spectral tilt (two modes: Default, Slower)
@@ -38,15 +38,20 @@ crates/sehrnoise-core/presets.toml  a copy of the tuning surface, so that
 crates/sehrnoise-plugin/src/
   lib.rs        the parameters, the CLAP and VST3 exports, the plugin
   access.rs     ParamAccess: reading and writing the parameters
-  ui.rs         the panel: presets, randomize, drift, sliders, warp, width
+  ui.rs         the panel: presets, randomize, drift, sliders, warp, width,
+                the centred box (§20.5)
   editor.rs     the egui app the host opens
   control.rs    what the two threads share: randomize counter, drift state,
-                the drift offsets the panel displays
+                user_selected, the drift offsets the panel displays
+  titlebar.rs   the hand-drawn standalone title bar (§20.3)
+  userpresets.rs the saved user presets (§21)
 crates/sehrnoise-standalone/src/main.rs   the application
-assets/presets.toml   the tuning surface (18 presets)
+assets/presets.toml   the tuning surface (10 presets)
+noise_references/     six reference WAVs for T7.3 (§20.9)
 tools/clapcheck/      a minimal CLAP host, used to verify a bundle loads
 tools/spectest/       the offline renderer and spectrum report
 tools/spectest/src/bin/top_end.rs  the top-end leak probe (see §19.4)
+tools/spectest/src/bin/refsolve.rs the reference-fit probe (§22)
 tools/gen_golden.py   the golden file generator
 tools/make_release.sh release archive builder (see §18)
 tools/refine/         the curve-fit exploration tool, preserved (see §18
@@ -55,7 +60,7 @@ PROVENANCE.md         where every algorithm, curve and constant came from
 .github/workflows/ci.yml  the build, on Linux, macOS and Windows
 ```
 
-**Tests: 77 green** (unit, matrix, plugin, golden, preset copy, allocation). Matrix = 1–9 + 12–14: tests 10–11 (old drift's bounds, period) retired with drift controls in Phase 7; fixed drift has six unit tests own + behavioural test (§19.5).
+**Tests: 96 green** (unit, matrix, plugin incl. user presets, golden, preset copy, allocation). Matrix = 1–9 + 12–14 minus test 5 `band_peak_isolates` (went with the band-peak presets, see TASKS.md T2.1); fixed drift has six unit tests own + behavioural test (§19.5).
 
 ## 2. Build and test
 
@@ -765,3 +770,71 @@ Standalone runs with PipeWire JACK shim (§15.1/§17), which sets `XDG_CONFIG_HO
 ### 21.3 Session rule (this session only)
 
 Author is gaming on this machine: standalone window must not be opened or closed without telling them first + getting go-ahead.
+
+---
+
+## 22. The release session of 2026-11-15/16 (GitHub, v0.1.0, CI first-run fixes)
+
+### 22.1 The repo is on GitHub now
+
+`https://github.com/MAKROFREEK/sehrnoise`, branch **`main`** (local `master` renamed; GitHub's default was `main`, initial commit `c51b3ce` rebase-linked with ours — conflicts on `.gitignore` + `README.md` resolved keeping ours). `gh` CLI authenticated as MAKROFREEK. History: `c51b3ce` → `8620f34` (v0.1.0 tree) → `0856cd9` (docs) → `cae2016` (Phase 7) → `012f4a8` → `b21589b` → `5121a35` → `24bbf61` → `c6c5618`.
+
+Cargo.toml `repository` field updated to the makrofreek URL.
+
+### 22.2 What happened to the presets between sessions
+
+**All eight band-peak presets removed** (author's dropdown screenshot: "remove these ones too" — first "73 Hz" + "13.0 kHz", then remaining six). Table = 10: White, Pink, Brown, Violet, Grey, Infra, Ultra, Vocal Mask, Low & Warm, Randomize. Tests: `the_band_peaks_are_present` deleted, `band_peak_isolates` deleted (comment in `spectral.rs` records how to restore). `the_table_is_populated` asserts ≥ 10.
+
+**Another session (the author's) then did T7.3**: presets re-fitted to `noise_references/` recordings via `tools/spectest` `refsolve` (new bin, plus `grprobe`, `refcmp`). Fitted gains span −80…+70.83 (Infra). New `output_trim_db` field in presets (T7.3) keeps shaped presets out of the limiter. T7.4 Save button done by that session too (`userpresets.rs`, §21).
+
+**Band range ping-pong (Syncthing, two machines):** conflict copies appeared in `src/` (`SFConflict admin 2026-11-15`), holding the older ±24 state. Deleted. Ranges ended: core `MIN/MAX_BAND_GAIN_DB` + UI `BAND_RANGE` = **±32** (author: "call it a day, get it close, not shooting for perfection"). Caveat recorded in code + presets header: Infra (+70.83/−80) and Ultra (+38.85) clamp hard at ±32 — Infra's 111 dB span cannot fit any reasonable slider range; Brown loses 1.5 dB on its deepest band. Spectral tests stay green because they fit over bands inside ±32. If presets must be exact again, widen core + param range back and re-check.
+
+### 22.3 The standalone-only release
+
+Author wanted release "based on current source", standalone only, no plugin bundles. Built + verified: 96 tests, release build, run-checked via rebuilt PipeWire JACK shim (`/tmp/opencode/pwjack` recipe re-run; client `sehrnoise` in `pw-cli ls Node`).
+
+**`/tmp/sehrnoise-target/releasepkg/sehrnoise-0.1.0-linux-x86_64-standalone.zip`** — binary + README + LICENSE, one directory. Lives in `/tmp`, dies with it.
+
+Then author wanted it on GitHub: tag `v0.1.0` pushed, `gh release create` attached the standalone zip. **Release: https://github.com/MAKROFREEK/sehrnoise/releases/tag/v0.1.0** (notes: standalone zip + pointer to CI's per-OS archives).
+
+**The tag moved three times** (delete remote tag, retag, push) as CI first-run failures were fixed — tag now sits at `c6c5618`. Release object follows the tag name.
+
+### 22.4 CI first-run fixes (§15.4's "expect to fix on first run", realised)
+
+- **E0425 `pixels_per_point`** (macOS/Windows): titlebar's debug print reads it inside a `ui.columns` closure. First "fix" (underscore-rename) silenced release but broke debug builds — CI compiles tests in debug. Real fix: `#[cfg(debug_assertions)] let debug_pixels_per_point = ...` read before the closure, captured inside. Lesson: warning fixes must be checked in **both** profiles.
+- **`alsa.pc` missing** (ubuntu): runners lack ALSA/JACK headers; `libasound2-dev` + `libjack-jackd2-dev` + `pkg-config` installed in both test + bundle jobs (gated `runner.os == 'Linux'`).
+- **XDG test on Windows**: `the_linux_config_directory_follows_the_xdg_rules` asserts Unix paths; `/xdg` is not absolute on Windows. Now `#[cfg(unix)]`.
+- Windows tests otherwise green (32+ suite passes seen in logs). Ubuntu/macOS unverified past these fixes at last look.
+
+### 22.5 Where things stand
+
+- Local: **96 tests green**, zero warnings, release binary built.
+- GitHub: release `v0.1.0` live with standalone zip; CI run for moved tag was started + its `gh run watch` was **interrupted** — **check `gh run list` before assuming CI finished**. If green, release job attaches full per-OS archives; if red, read the log, fix, move tag again.
+- Compressed docs: `TASKS.md` + this file live in caveman-compressed form; originals at `TASKS.md.original.md` / `HANDOFF.md.original.md` (uncommitted? they are tracked now — decide whether to keep them in the repo or gitignore them).
+- **Untracked in repo**: `TASKS.md.original.md`, `HANDOFF.md.original.md` backups sit in project root. Author may want them out of the synced vault.
+- **Next**: T7.14 (scale controls with window size) untouched; bass-mono toggle (right of Warp) requested + fully scoped in session, **not implemented** — plan: `EngineParams.bass_mono: bool` default true, `BassMono::apply` gains enabled flag, plugin BoolParam + `ParamAccess` methods (both impls + TestAccess), `engine_params()` wires it, UI toggle right of warp dropdown, presets untouched. T6.3 crates.io still needs author's `cargo login`.
+- JACK shim rebuilt again this session: `/tmp/opencode/pwjack` + `/tmp/opencode/pwcfg` present (dies with `/tmp`).
+
+---
+
+## 23. Session of 2026-11-17 — T7.14 scaling + title bar removed
+
+### 23.1 Controls scale with the window (T7.14, done)
+
+Author's answers: **proportional, capped**; hand-drawn title bar **removed** (compositor draws its own bar again).
+
+- Zoom rides on egui's **pixels-per-point**. `editor.rs::scale_for_window(physical_w, physical_h, base_ppp)` = min of the two sides' ratio against `EDITOR_SIZE` (575×310), clamped **0.5 … 2.0**. Design size → zoom 1.0, so T7.9's default window draws exactly as before.
+- Applied per frame in `editor.rs::ui`: `ctx.set_pixels_per_point(base * scale)`. `base_ppp` captured once on first frame (display's own setting). **Input = physical pixels, not egui's logical size** — logical size depends on current ppp, feeding it back would make the zoom chase itself on resize.
+- Box's logical-point sizes (`SLIDER_SIZE`, `BAND_SPACING`, fonts) untouched → T7.10's no-wiggle fixes hold. At exactly 575×310 nothing changes.
+- Cap 2.0 = author's "capped"; floor 0.5 = shrunk windows shrink controls to a readable minimum, then stop. Six unit tests in `editor.rs` (default, double, cap, floor, limiting side, HiDPI stability).
+
+### 23.2 Title bar gone (undoes T7.1)
+
+`crates/sehrnoise-plugin/src/titlebar.rs` **deleted** with `pub mod titlebar;`, `titlebar::install()`/`draw()` calls, `x11rb` dependency, and its debug hooks (`SEHRNOISE_TITLEBAR_DEBUG`/`_TEST`). `_MOTIF_WM_HINTS` trick gone → Cosmic decorations return, min/max/close = compositor's. Centred box anchors `[0.0, 0.0]` to whole window again (`ui.rs::draw`). CI §22.4's `pixels_per_point` E0425 fix died with the file — moot.
+
+### 23.3 State after this session
+
+- **99 tests green**, zero warnings (96 − 3 titlebar + 6 zoom).
+- Everything **uncommitted** (author has not asked).
+- Visual check by author still pending: standalone opened? **Not yet** (§21.3 rule — ask first). Verify: big window → bigger controls, default window unchanged, compositor bar back with working buttons.
+- Open after this: bass-mono toggle (scoped, not built), T6.3 (`cargo login`), CI Ubuntu/macOS unverified past fixes, untracked `.original.md` backups.
