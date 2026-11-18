@@ -437,7 +437,7 @@ checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
 name = "clapcheck"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap-sys",
  "libloading 0.9.0",
@@ -2332,7 +2332,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "sehrnoise-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rustfft",
  "serde",
@@ -2342,7 +2342,7 @@ dependencies = [
 
 [[package]]
 name = "sehrnoise-plugin"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "egui",
  "nice-plug",
@@ -2354,7 +2354,7 @@ dependencies = [
 
 [[package]]
 name = "sehrnoise-standalone"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nice-plug",
  "sehrnoise-core",
@@ -2498,7 +2498,7 @@ dependencies = [
 
 [[package]]
 name = "spectest"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "sehrnoise-core",
 ]
