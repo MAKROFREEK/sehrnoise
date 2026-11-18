@@ -842,6 +842,7 @@ Author's answers: **proportional, capped**; hand-drawn title bar **removed** (co
 Author's verdict on T7.14: "almost perfect, MUCH MUCH better", **residual jitter while resizing** — minor, left as is, not ticketed. Then: "commit this to gh then make a release".
 
 - **Commits**: `4a06a5d` (T7.14 + titlebar removal + docs + `.idea/` gitignored — was untracked), `7cab38c` (version 0.1.1). Pushed to `main`.
+- **Jitter ticketed** (author's close-out ask): **T7.15** in TASKS.md — slight jitter while resizing, zoom quantisation + hysteresis stay, suspects listed in ticket.
 - **Tag `v0.1.1`**, release live: `https://github.com/MAKROFREEK/sehrnoise/releases/tag/v0.1.1`, standalone zip attached by hand (`sehrnoise-0.1.1-linux-x86_64-standalone.zip`, v0.1.0's shape: binary + README + LICENSE, one directory).
 - CI runs on the push + tag; `gh run watch` started — §22.5's rule stands: check `gh run list` before assuming the release job's per-OS archives arrived.
 

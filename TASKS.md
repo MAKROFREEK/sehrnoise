@@ -381,6 +381,17 @@ Decisions taken face to face; all implemented + tested this session:
       again; `titlebar.rs`, `x11rb` dep and its debug hooks deleted;
       centred box anchors to the whole window again. Verified: 99 tests
       green, zero warnings.
+- [ ] **T7.15 Resize jitter.** (Author, 2026-11-17, after T7.14: "almost
+      perfect, MUCH MUCH better, but I noticed some jitteriness when
+      resizing.") The zoom is quantised (5 % steps) + hysteresis-guarded,
+      so the earlier endless creep is gone; what is left is a slight
+      jitter *while* the window is being resized. Suspects worth
+      measuring before touching anything: each applied zoom re-rasterises
+      the fonts (texture rebuild mid-drag); the box's anchor re-centres
+      every frame the zoom moves a step; X11 resize is not async, so
+      baseview resizes lag the compositor. First probe: reproduce with
+      `SEHRNOISE_TITLEBAR_*` gone — debug logging for the zoom itself
+      does not exist yet; add it before changing code.
 
 Status as of the stop: see [HANDOFF.md](HANDOFF.md) for environment findings,
 verified toolchain results, measurement findings about band bank, deviations
